@@ -291,11 +291,21 @@
 
   @keyframes slideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes popIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+  /* Toast */
+  #toast {
+    position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(80px);
+    padding: 0.65rem 1.4rem; border-radius: 30px; font-size: 0.78rem; font-weight: 500;
+    letter-spacing: 0.05em; z-index: 999; transition: transform 0.3s ease, opacity 0.3s ease;
+    opacity: 0; pointer-events: none;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 </style>
 </head>
 <body>
 
 <nav>
+  <div id="toast"></div>
   <div class="nav-logo">The Weekend</div>
   <div class="nav-tabs">
     <button class="nav-tab active" data-page="schedule" onclick="showPage('schedule')">📅 Schedule</button>
@@ -424,14 +434,46 @@
 </div>
 
 <script>
+// ── SUPABASE ──
+const SUPABASE_URL = 'https://edyuizgeyqrnkijvvufx.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkeXVpemdleXFybmtpanZ2dWZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4MjkxMTcsImV4cCI6MjA4NjQwNTExN30.8zVQP7LbZaj6DOu7KL_tJSjvrDTpHxjTDWL7fMZeaLk';
+
+async function sb(table, method='GET', body=null, params='') {
+  const url = `${SUPABASE_URL}/rest/v1/${table}${params}`;
+  const res = await fetch(url, {
+    method,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': method==='POST' ? 'return=representation' : method==='PATCH' ? 'return=representation' : '',
+    },
+    body: body ? JSON.stringify(body) : null
+  });
+  if (!res.ok) { const e = await res.text(); console.error('Supabase error:', e); throw new Error(e); }
+  if (method === 'DELETE' || res.status === 204) return null;
+  return res.json();
+}
+
 // ── UTILS ──
-const store = {
-  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
-  set(k,v) { localStorage.setItem(k, JSON.stringify(v)); }
-};
 function escH(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
+function toast(msg, ok=true) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = ok ? '#7ec896' : '#e05a5a';
+  t.style.color = '#0f0e0c';
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2800);
+}
+
+function setLoading(id, on) {
+  const el = document.getElementById(id);
+  if (el) el.style.opacity = on ? '0.5' : '1';
+}
+
 function showPage(p) {
   document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
@@ -465,20 +507,26 @@ function fmtTime(t) {
   return (h%12||12)+':'+String(m).padStart(2,'0')+' '+(h>=12?'PM':'AM');
 }
 function changeWeek(d){ weekOffset+=d; renderSchedule(); }
-function getSchedEvs(wk,dk){ return store.get('s_'+wk+'_'+dk)||[]; }
-function setSchedEvs(wk,dk,v){ store.set('s_'+wk+'_'+dk,v); }
 
-function renderSchedule() {
+async function renderSchedule() {
   document.getElementById('week-label').textContent=weekLabel(weekOffset);
   const wk=weekStr(weekOffset), dates=getWeekDates(weekOffset);
-  const grid=document.getElementById('sched-grid'); grid.innerHTML='';
+  const grid=document.getElementById('sched-grid');
+  grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:2rem;font-size:0.8rem">Loading...</div>`;
+
+  let evs = [];
+  try {
+    evs = await sb('schedule_events','GET',null,`?week_start=eq.${wk}&order=event_time.asc.nullslast`);
+  } catch(e) { toast('Failed to load schedule','error'); evs=[]; }
+
+  grid.innerHTML='';
   DAY_KEYS.forEach((dk,i)=>{
-    const evs=getSchedEvs(wk,dk);
+    const dayEvs = evs.filter(e=>e.day===dk);
     const col=document.createElement('div'); col.className='day-col '+dk;
-    const evHtml=evs.length===0?'<div class="empty-state">nothing yet...</div>':evs.map((ev,idx)=>`
+    const evHtml=dayEvs.length===0?'<div class="empty-state">nothing yet...</div>':dayEvs.map(ev=>`
       <div class="event-card">
-        <button class="event-delete" onclick="delSchedEv('${wk}','${dk}',${idx})">×</button>
-        ${ev.time?'<div class="event-time">'+fmtTime(ev.time)+'</div>':''}
+        <button class="event-delete" onclick="delSchedEv('${ev.id}')">×</button>
+        ${ev.event_time?'<div class="event-time">'+fmtTime(ev.event_time)+'</div>':''}
         <div class="event-title">${escH(ev.title)}</div>
         ${ev.who?'<div class="event-meta">👥 '+escH(ev.who)+'</div>':''}
         ${ev.notes?'<div class="event-meta">📍 '+escH(ev.notes)+'</div>':''}
@@ -490,7 +538,7 @@ function renderSchedule() {
           <div class="day-date">${dates[i].toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
         </div>
         <div style="display:flex;align-items:center;gap:.5rem">
-          <span style="font-size:.63rem;color:var(--muted)">${evs.length||''}</span>
+          <span style="font-size:.63rem;color:var(--muted)">${dayEvs.length||''}</span>
           <div class="dot"></div>
         </div>
       </div>
@@ -512,36 +560,68 @@ function openSchedModal(dk,wk) {
   setTimeout(()=>document.getElementById('sf-title').focus(),100);
 }
 
-function saveSchedEvent() {
+async function saveSchedEvent() {
   const title=document.getElementById('sf-title').value.trim();
   if(!title){ document.getElementById('sf-title').style.borderColor='#e05a5a'; return; }
   document.getElementById('sf-title').style.borderColor='';
-  const ev={title,time:document.getElementById('sf-time').value,who:document.getElementById('sf-who').value.trim(),notes:document.getElementById('sf-notes').value.trim()};
-  const evs=getSchedEvs(schedWk,schedDay);
-  evs.push(ev); evs.sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
-  setSchedEvs(schedWk,schedDay,evs); closeModal('sched-modal'); renderSchedule();
+  const btn=document.getElementById('sched-save-btn');
+  btn.textContent='Saving...'; btn.disabled=true;
+  try {
+    await sb('schedule_events','POST',{
+      week_start: schedWk,
+      day: schedDay,
+      title,
+      event_time: document.getElementById('sf-time').value || null,
+      who: document.getElementById('sf-who').value.trim() || null,
+      notes: document.getElementById('sf-notes').value.trim() || null,
+    });
+    closeModal('sched-modal');
+    toast('Event added!');
+    renderSchedule();
+  } catch(e) { toast('Failed to save event', false); }
+  finally { btn.textContent='Add Event'; btn.disabled=false; }
 }
 
-function delSchedEv(wk,dk,idx) {
-  const evs=getSchedEvs(wk,dk); evs.splice(idx,1); setSchedEvs(wk,dk,evs); renderSchedule();
+async function delSchedEv(id) {
+  try {
+    await sb('schedule_events','DELETE',null,`?id=eq.${id}`);
+    toast('Event removed');
+    renderSchedule();
+  } catch(e) { toast('Failed to delete', false); }
 }
 
 document.getElementById('sf-title').addEventListener('keydown',e=>{ if(e.key==='Enter') saveSchedEvent(); });
 
 // ── TODO ──
 let todoFilter='all';
-function getTodos(){ return store.get('todos_v2')||[]; }
-function saveTodos(t){ store.set('todos_v2',t); }
 
-function addTodo() {
+async function addTodo() {
   const inp=document.getElementById('todo-input'), text=inp.value.trim(); if(!text) return;
-  const todos=getTodos();
-  todos.unshift({id:Date.now(),text,done:false,date:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'})});
-  saveTodos(todos); inp.value=''; renderTodos();
+  inp.value='';
+  try {
+    await sb('todos','POST',{ text, done: false });
+    toast('Added to list!');
+    renderTodos();
+  } catch(e) { toast('Failed to add item', false); inp.value=text; }
 }
 
-function toggleTodo(id){ saveTodos(getTodos().map(t=>t.id===id?{...t,done:!t.done}:t)); renderTodos(); }
-function deleteTodo(id){ saveTodos(getTodos().filter(t=>t.id!==id)); renderTodos(); }
+async function toggleTodo(id, currentDone) {
+  try {
+    await sb('todos','PATCH',{
+      done: !currentDone,
+      done_at: !currentDone ? new Date().toISOString() : null
+    },`?id=eq.${id}`);
+    renderTodos();
+  } catch(e) { toast('Failed to update', false); }
+}
+
+async function deleteTodo(id) {
+  try {
+    await sb('todos','DELETE',null,`?id=eq.${id}`);
+    toast('Removed from list');
+    renderTodos();
+  } catch(e) { toast('Failed to delete', false); }
+}
 
 function setFilter(f) {
   todoFilter=f;
@@ -549,21 +629,27 @@ function setFilter(f) {
   renderTodos();
 }
 
-function renderTodos() {
-  const all=getTodos();
-  const filtered=todoFilter==='all'?all:all.filter(t=>todoFilter==='done'?t.done:!t.done);
-  const done=all.filter(t=>t.done).length;
-  document.getElementById('todo-stats').textContent=done+'/'+all.length+' done';
+async function renderTodos() {
   const list=document.getElementById('todo-list');
+  list.innerHTML='<div class="todo-empty">Loading...</div>';
+  let all=[];
+  try {
+    all = await sb('todos','GET',null,'?order=created_at.desc');
+  } catch(e) { toast('Failed to load todos', false); all=[]; }
+
+  const filtered = todoFilter==='all' ? all : all.filter(t=>todoFilter==='done'?t.done:!t.done);
+  const done = all.filter(t=>t.done).length;
+  document.getElementById('todo-stats').textContent=done+'/'+all.length+' done';
+
   if(filtered.length===0){
     list.innerHTML='<div class="todo-empty">'+(todoFilter==='done'?'nothing done yet...':todoFilter==='active'?'all clear! 🎉':'the list is empty...')+'</div>'; return;
   }
   list.innerHTML=filtered.map(t=>`
     <div class="todo-item ${t.done?'done':''}">
-      <button class="todo-check" onclick="toggleTodo(${t.id})"><div class="todo-check-inner"></div></button>
+      <button class="todo-check" onclick="toggleTodo('${t.id}',${t.done})"><div class="todo-check-inner"></div></button>
       <span class="todo-text">${escH(t.text)}</span>
-      <span class="todo-date">${escH(t.date)}</span>
-      <button class="todo-del" onclick="deleteTodo(${t.id})">×</button>
+      <span class="todo-date">${new Date(t.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
+      <button class="todo-del" onclick="deleteTodo('${t.id}')">×</button>
     </div>`).join('');
 }
 
@@ -600,7 +686,7 @@ function buildCriteriaForm() {
           id="cs-${c.key}" oninput="updateCritVal('${c.key}',this.value)" />
         <div class="criterion-val" id="cv-${c.key}">${criteriaScores[c.key]??5}</div>
       </div>
-      <div class="criterion-note" style="grid-template-columns:unset;display:grid;grid-template-columns:90px 1fr;gap:0.6rem;margin-bottom:0.4rem">
+      <div style="display:grid;grid-template-columns:90px 1fr;gap:0.6rem;margin-bottom:0.4rem">
         <div></div>
         <input type="text" id="cn-${c.key}" placeholder="${c.hint}" value="${escH(criteriaNotes[c.key]||'')}"
           style="font-size:0.68rem;padding:0.3rem 0.6rem;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:6px;outline:none;font-family:'DM Mono',monospace" />
@@ -613,9 +699,6 @@ function updateCritVal(key, val) {
   document.getElementById('cv-'+key).textContent = val;
 }
 
-function getReviews(){ return store.get('boyle_v3')||[]; }
-function saveReviews(r){ store.set('boyle_v3',r); }
-
 function openBoyleModal() {
   criteriaScores = {}; criteriaNotes = {};
   CRITERIA.forEach(c => { criteriaScores[c.key]=5; criteriaNotes[c.key]=''; });
@@ -626,39 +709,61 @@ function openBoyleModal() {
   setTimeout(()=>document.getElementById('bf-restaurant').focus(),100);
 }
 
-function saveBoyleReview() {
-  const restaurant=document.getElementById('bf-restaurant').value.trim();
-  if(!restaurant){ document.getElementById('bf-restaurant').style.borderColor='#e05a5a'; return; }
+async function saveBoyleReview() {
+  const food_name=document.getElementById('bf-restaurant').value.trim();
+  if(!food_name){ document.getElementById('bf-restaurant').style.borderColor='#e05a5a'; return; }
   document.getElementById('bf-restaurant').style.borderColor='';
 
-  // read slider + note values from DOM
   const scores={}, notes={};
   CRITERIA.forEach(c=>{
     scores[c.key]=parseInt(document.getElementById('cs-'+c.key).value);
     notes[c.key]=document.getElementById('cn-'+c.key).value.trim();
   });
-
   const total=Object.values(scores).reduce((a,b)=>a+b,0);
-  const avg=(total/CRITERIA.length).toFixed(1);
+  const avg=parseFloat((total/CRITERIA.length).toFixed(2));
 
-  const r={
-    id:Date.now(), restaurant,
-    cuisine:document.getElementById('bf-cuisine').value.trim(),
-    date:document.getElementById('bf-date').value.trim()||new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
-    scores, notes, avg,
-    review:document.getElementById('bf-review').value.trim(),
-    revisit:document.getElementById('bf-revisit').value
-  };
-  const reviews=getReviews(); reviews.unshift(r); saveReviews(reviews);
-  closeModal('boyle-modal'); renderReviews();
+  const saveBtn = document.querySelector('#boyle-modal .btn-primary');
+  saveBtn.textContent='Saving...'; saveBtn.disabled=true;
+
+  try {
+    // 1. Insert review header
+    const [review] = await sb('boyle_reviews','POST',{
+      food_name,
+      cuisine: document.getElementById('bf-cuisine').value.trim() || null,
+      date_tasted: document.getElementById('bf-date').value.trim() || new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
+      average_score: avg,
+      verdict: document.getElementById('bf-review').value.trim() || null,
+      revisit: document.getElementById('bf-revisit').value,
+    });
+
+    // 2. Insert all 14 criteria rows
+    const criteriaRows = CRITERIA.map(c=>({
+      review_id: review.id,
+      criterion: c.key,
+      score: scores[c.key],
+      note: notes[c.key] || null,
+    }));
+    await sb('boyle_criteria','POST', criteriaRows);
+
+    closeModal('boyle-modal');
+    toast('Review logged!');
+    renderReviews();
+  } catch(e) { toast('Failed to save review', false); console.error(e); }
+  finally { saveBtn.textContent='Log Review'; saveBtn.disabled=false; }
 }
 
-function deleteReview(id){ saveReviews(getReviews().filter(r=>r.id!==id)); renderReviews(); }
+async function deleteReview(id) {
+  try {
+    // CASCADE on the DB handles boyle_criteria deletion
+    await sb('boyle_reviews','DELETE',null,`?id=eq.${id}`);
+    toast('Review deleted');
+    renderReviews();
+  } catch(e) { toast('Failed to delete', false); }
+}
 
 const RV_LABELS={yes:'Would Revisit ✓',maybe:'Maybe Revisit',no:'Would Not Revisit'};
 const RV_CLS={yes:'rv-yes',maybe:'rv-maybe',no:'rv-no'};
 
-// Score to colour: 0=grey, low=red, mid=amber, high=green
 function scoreColor(n) {
   if(n<=2) return '#888';
   if(n<=4) return '#e05a5a';
@@ -667,17 +772,31 @@ function scoreColor(n) {
   return '#7ec896';
 }
 
-function renderReviews() {
-  const reviews=getReviews();
+async function renderReviews() {
   const grid=document.getElementById('reviews-grid');
+  grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:3rem;font-size:0.8rem">Loading...</div>`;
+
+  let reviews=[], criteriaAll=[];
+  try {
+    reviews = await sb('boyle_reviews','GET',null,'?order=created_at.desc');
+    if(reviews.length>0){
+      const ids = reviews.map(r=>`"${r.id}"`).join(',');
+      criteriaAll = await sb('boyle_criteria','GET',null,`?review_id=in.(${ids})`);
+    }
+  } catch(e) { toast('Failed to load reviews', false); reviews=[]; }
+
   if(reviews.length===0){
     grid.innerHTML='<div class="reviews-empty"><span class="big">CB</span>No reviews yet.<br>Start logging your culinary adventures!</div>'; return;
   }
+
   grid.innerHTML=reviews.map(r=>{
-    // show top 5 scored criteria (non-zero, highest first)
-    const sorted = CRITERIA.map(c=>({...c, score:r.scores?.[c.key]??0, note:r.notes?.[c.key]||''}))
-      .filter(c=>c.score>0)
-      .sort((a,b)=>b.score-a.score);
+    const rc = criteriaAll.filter(c=>c.review_id===r.id);
+    // Build score map from DB rows
+    const scoreMap={}, noteMap={};
+    rc.forEach(c=>{ scoreMap[c.criterion]=c.score; noteMap[c.criterion]=c.note||''; });
+
+    const sorted = CRITERIA.map(c=>({...c, score:scoreMap[c.key]??0, note:noteMap[c.key]||''}))
+      .filter(c=>c.score>0).sort((a,b)=>b.score-a.score);
     const topCrit = sorted.slice(0,6);
 
     const barsHtml = topCrit.map(c=>`
@@ -690,22 +809,23 @@ function renderReviews() {
 
     return `
     <div class="review-card">
-      <button class="review-del" onclick="deleteReview(${r.id})">×</button>
+      <button class="review-del" onclick="deleteReview('${r.id}')">×</button>
       <div class="review-card-top">
-        <div class="review-restaurant">${escH(r.restaurant)}</div>
+        <div class="review-restaurant">${escH(r.food_name)}</div>
         ${r.cuisine?'<div class="review-cuisine">'+escH(r.cuisine)+'</div>':''}
         <div style="display:flex;align-items:baseline;gap:0.5rem;margin-top:0.6rem">
-          <span class="boyle-score" style="font-size:2rem">${r.avg||'?'}</span>
+          <span class="boyle-score" style="font-size:2rem">${r.average_score??'?'}</span>
           <span style="font-size:0.6rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">/ 10 avg</span>
         </div>
       </div>
       <div class="criteria-bars">${barsHtml}</div>
-      ${r.review?`<div class="review-body"><div class="review-quote">"${escH(r.review)}"</div></div>`:''}
+      ${r.verdict?`<div class="review-body"><div class="review-quote">"${escH(r.verdict)}"</div></div>`:''}
       <div class="review-footer">
-        <span class="review-date">${escH(r.date)}</span>
+        <span class="review-date">${escH(r.date_tasted||'')}</span>
         <span class="review-revisit ${RV_CLS[r.revisit]}">${RV_LABELS[r.revisit]}</span>
       </div>
-    </div>`}).join('');
+    </div>`;
+  }).join('');
 }
 
 // ── INIT ──
