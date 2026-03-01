@@ -25,15 +25,16 @@
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html { height: 100%; }
+  html, body { height: 100%; overflow-x: hidden; }
   body {
     font-family: 'DM Mono', monospace; background: var(--bg); color: var(--text);
-    min-height: 100%; min-height: 100dvh;
-    /* push content above bottom nav */
+    min-height: 100dvh;
     padding-bottom: var(--bottom-nav-h);
+    /* prevent any child from blowing out width */
+    max-width: 100vw;
   }
 
-  /* ── TOP NAV (desktop) ── */
+  /* ── TOP NAV (desktop only) ── */
   .top-nav {
     display: flex; align-items: center;
     padding: 0 1.5rem; border-bottom: 1px solid var(--border);
@@ -59,7 +60,58 @@
   .nav-tab.active[data-page="todo"]     { color: var(--todo); border-bottom-color: var(--todo); }
   .nav-tab.active[data-page="boyle"]    { color: var(--boyle); border-bottom-color: var(--boyle); }
 
-  /* ── BOTTOM NAV (mobile) ── */
+  /* ── MOBILE TOP BAR ── */
+  .mobile-top-bar {
+    display: none;
+    position: sticky; top: 0; z-index: 50;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    /* push below status bar */
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    width: 100%;
+    flex-direction: column;
+  }
+  .mobile-top-bar-inner {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0 1rem;
+    height: 52px; width: 100%;
+  }
+  .mobile-top-bar .app-name {
+    font-family: 'Playfair Display', serif; font-style: italic;
+    font-size: 1.2rem; color: var(--text); line-height: 1; flex: 1; min-width: 0;
+  }
+  .mobile-top-bar .app-name {
+    font-family: 'Playfair Display', serif; font-style: italic;
+    font-size: 1.2rem; color: var(--fri); line-height: 1; flex: 1; min-width: 0;
+  }
+  /* Week nav inside mobile top bar — only visible on schedule page */
+  .mobile-week-nav {
+    display: none; align-items: center; gap: 0.4rem; flex-shrink: 0;
+  }
+  .mobile-week-nav.visible { display: flex; }
+  .mobile-week-nav button {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 1rem;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .mobile-week-nav button:active { transform: scale(0.88); opacity: 0.7; }
+  #mobile-week-label {
+    font-size: 0.58rem; text-align: center; text-transform: uppercase;
+    letter-spacing: 0.07em; color: var(--muted); white-space: nowrap;
+  }
+  /* Action button in top bar (e.g. + Log Review) */
+  .mobile-top-action {
+    display: none; flex-shrink: 0;
+    padding: 0.45rem 0.85rem; border: none; border-radius: 8px;
+    font-family: 'DM Mono', monospace; font-size: 0.68rem; font-weight: 500;
+    color: #0f0e0c; cursor: pointer; white-space: nowrap; min-height: 36px;
+  }
+  .mobile-top-action.visible { display: flex; align-items: center; }
+  .mobile-top-action:active { opacity: 0.7; }
+
+  /* ── BOTTOM NAV ── */
   .bottom-nav {
     display: none;
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
@@ -76,16 +128,15 @@
     gap: 3px; background: none; border: none; cursor: pointer;
     color: var(--muted); font-family: 'DM Mono', monospace;
     font-size: 0.55rem; letter-spacing: 0.08em; text-transform: uppercase;
-    transition: color 0.2s; padding: 0;
-    -webkit-tap-highlight-color: transparent;
+    transition: color 0.15s; padding: 0;
   }
-  .bottom-tab .b-icon { font-size: 1.35rem; line-height: 1; }
+  .bottom-tab .b-icon { font-size: 1.3rem; line-height: 1; }
   .bottom-tab.active[data-page="schedule"] { color: var(--fri); }
   .bottom-tab.active[data-page="todo"]     { color: var(--todo); }
   .bottom-tab.active[data-page="boyle"]    { color: var(--boyle); }
 
   /* ── PAGES ── */
-  .page { display: none; padding: 1.25rem; }
+  .page { display: none; padding: 1rem; width: 100%; }
   .page.active { display: block; }
 
   /* ── SCHEDULE ── */
@@ -93,14 +144,13 @@
     display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;
   }
   .schedule-title { font-family: 'Playfair Display', serif; font-size: clamp(1.4rem,5vw,2.4rem); font-style: italic; }
-  .week-nav { display: flex; align-items: center; gap: 0.5rem; font-size: 0.68rem; color: var(--muted); letter-spacing: 0.08em; }
+  .week-nav { display: flex; align-items: center; gap: 0.5rem; color: var(--muted); }
   .week-nav button {
     background: var(--surface2); border: 1px solid var(--border); color: var(--text);
     width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 1.1rem;
-    display: flex; align-items: center; justify-content: center; transition: all 0.2s;
-    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
-  .week-nav button:active { background: var(--surface); border-color: var(--muted); transform: scale(0.92); }
+  .week-nav button:active { transform: scale(0.92); opacity: 0.7; }
   #week-label { font-size: 0.62rem; text-align: center; text-transform: uppercase; letter-spacing: 0.1em; min-width: 100px; }
 
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
@@ -114,34 +164,30 @@
   .sun .day-header { background: color-mix(in srgb, var(--sun) 9%, var(--surface)); }
   .fri .day-name { color: var(--fri); } .sat .day-name { color: var(--sat); } .sun .day-name { color: var(--sun); }
   .fri .dot { background: var(--fri); } .sat .dot { background: var(--sat); } .sun .dot { background: var(--sun); }
-  .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
-  .events-list { flex: 1; padding: 0.65rem; display: flex; flex-direction: column; gap: 0.5rem; min-height: 80px; }
+  .events-list { flex: 1; padding: 0.65rem; display: flex; flex-direction: column; gap: 0.5rem; min-height: 70px; }
   .event-card {
     background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
-    padding: 0.65rem 2.2rem 0.65rem 0.75rem; position: relative; animation: slideIn 0.22s ease;
+    padding: 0.65rem 2.4rem 0.65rem 0.75rem; position: relative; animation: slideIn 0.22s ease;
   }
   .event-time { font-size: 0.55rem; color: var(--muted); letter-spacing: 0.08em; margin-bottom: 0.15rem; text-transform: uppercase; }
-  .event-title { font-size: 0.8rem; font-weight: 500; color: var(--text); line-height: 1.3; }
-  .event-meta { font-size: 0.62rem; color: var(--muted); margin-top: 0.25rem; }
-  /* Delete always visible on mobile (no hover) */
+  .event-title { font-size: 0.85rem; font-weight: 500; color: var(--text); line-height: 1.3; word-break: break-word; }
+  .event-meta { font-size: 0.62rem; color: var(--muted); margin-top: 0.25rem; word-break: break-word; }
   .event-delete {
-    position: absolute; top: 50%; right: 0.5rem; transform: translateY(-50%);
+    position: absolute; top: 50%; right: 0.4rem; transform: translateY(-50%);
     background: none; border: none; color: var(--muted); cursor: pointer;
-    font-size: 1.1rem; line-height: 1; padding: 0.25rem;
-    min-width: 32px; min-height: 32px; display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; line-height: 1;
+    width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
   }
   .event-delete:active { color: #e05a5a; }
-
   .add-btn {
-    margin: 0 0.65rem 0.65rem; padding: 0.6rem; background: none; border: 1px dashed var(--border);
+    margin: 0 0.65rem 0.65rem; padding: 0.65rem; background: none; border: 1px dashed var(--border);
     color: var(--muted); border-radius: 8px; cursor: pointer; font-family: 'DM Mono', monospace;
-    font-size: 0.65rem; letter-spacing: 0.08em; transition: all 0.15s; width: calc(100% - 1.3rem);
-    min-height: 40px;
+    font-size: 0.65rem; letter-spacing: 0.08em; width: calc(100% - 1.3rem); min-height: 42px;
   }
   .add-btn:active { opacity: 0.6; }
-
-  .empty-state { color: var(--muted); font-size: 0.68rem; text-align: center; padding: 1rem; opacity: 0.6; font-style: italic; }
+  .empty-state { color: var(--muted); font-size: 0.68rem; text-align: center; padding: 1.25rem 1rem; opacity: 0.6; font-style: italic; }
 
   /* ── TO-DO ── */
   .todo-header {
@@ -150,24 +196,22 @@
   }
   .todo-title { font-family: 'Playfair Display', serif; font-size: clamp(1.4rem,5vw,2.4rem); font-style: italic; }
   .todo-title span { color: var(--todo); }
-  .todo-stats { font-size: 0.65rem; color: var(--muted); letter-spacing: 0.06em; }
+  .todo-stats { font-size: 0.65rem; color: var(--muted); letter-spacing: 0.06em; flex-shrink: 0; }
   .todo-add-row { display: flex; gap: 0.6rem; margin-bottom: 1rem; }
   .todo-add-row input {
-    flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
     color: var(--text); padding: 0.8rem 1rem; font-family: 'DM Mono', monospace;
-    font-size: 1rem; outline: none; transition: border-color 0.2s;
-    /* prevent iOS zoom on focus */
-    font-size: max(16px, 0.87rem);
+    font-size: max(16px, 0.87rem); outline: none; transition: border-color 0.2s;
   }
   .todo-add-row input:focus { border-color: var(--todo); }
   .todo-add-row input::placeholder { color: var(--muted); }
   .todo-add-btn {
     padding: 0.8rem 1rem; background: var(--todo); border: none; border-radius: 10px;
     color: #0f0e0c; font-family: 'DM Mono', monospace; font-size: 0.78rem; font-weight: 500;
-    cursor: pointer; white-space: nowrap; min-height: 48px;
+    cursor: pointer; white-space: nowrap; min-height: 48px; flex-shrink: 0;
   }
   .todo-add-btn:active { opacity: 0.75; }
-  .todo-filters { display: flex; gap: 0.4rem; margin-bottom: 1rem; }
+  .todo-filters { display: flex; gap: 0.4rem; margin-bottom: 1rem; flex-wrap: wrap; }
   .filter-btn {
     padding: 0.4rem 0.9rem; background: none; border: 1px solid var(--border);
     border-radius: 20px; color: var(--muted); font-family: 'DM Mono', monospace;
@@ -177,27 +221,26 @@
   .filter-btn.active { background: var(--todo); border-color: var(--todo); color: #0f0e0c; }
   .todo-list { display: flex; flex-direction: column; gap: 0.5rem; }
   .todo-item {
-    display: flex; align-items: center; gap: 0.85rem; background: var(--surface);
-    border: 1px solid var(--border); border-radius: 10px; padding: 0.85rem 1rem;
+    display: flex; align-items: center; gap: 0.75rem; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem 0.85rem;
     animation: slideIn 0.2s ease;
   }
   .todo-item.done { opacity: 0.45; }
   .todo-check {
-    width: 26px; height: 26px; border: 2px solid var(--border); border-radius: 50%;
+    width: 26px; height: 26px; min-width: 26px; border: 2px solid var(--border); border-radius: 50%;
     cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s; background: none; min-width: 26px;
+    background: none; transition: all 0.2s;
   }
   .todo-item.done .todo-check { background: var(--todo); border-color: var(--todo); }
   .todo-check-inner { width: 9px; height: 9px; background: #0f0e0c; border-radius: 50%; opacity: 0; transition: opacity 0.15s; }
   .todo-item.done .todo-check-inner { opacity: 1; }
-  .todo-text { flex: 1; font-size: 0.88rem; color: var(--text); line-height: 1.35; }
+  .todo-text { flex: 1; min-width: 0; font-size: 0.88rem; color: var(--text); line-height: 1.35; word-break: break-word; }
   .todo-item.done .todo-text { text-decoration: line-through; color: var(--muted); }
-  .todo-date { font-size: 0.6rem; color: var(--muted); white-space: nowrap; }
-  /* Always visible delete on mobile */
+  .todo-date { font-size: 0.6rem; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
   .todo-del {
     background: none; border: none; color: var(--muted); cursor: pointer;
-    font-size: 1.1rem; line-height: 1; padding: 0.25rem;
-    min-width: 32px; min-height: 32px; display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; line-height: 1; flex-shrink: 0;
+    width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
   }
   .todo-del:active { color: #e05a5a; }
   .todo-empty { color: var(--muted); font-size: 0.78rem; text-align: center; padding: 3rem 1rem; font-style: italic; opacity: 0.6; }
@@ -231,22 +274,21 @@
     background: color-mix(in srgb, var(--boyle) 8%, var(--surface));
     padding: 1rem 1.1rem 0.8rem; border-bottom: 1px solid var(--border);
   }
-  .review-restaurant { font-family: 'Playfair Display', serif; font-size: 1.05rem; font-weight: 700; color: var(--text); line-height: 1.2; padding-right: 1.5rem; }
+  .review-restaurant { font-family: 'Playfair Display', serif; font-size: 1.05rem; font-weight: 700; color: var(--text); line-height: 1.2; padding-right: 1.5rem; word-break: break-word; }
   .review-cuisine { font-size: 0.6rem; color: var(--boyle); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 0.2rem; }
   .boyle-score { font-family: 'Caveat', cursive; font-size: 1.3rem; color: var(--boyle); margin-left: 0.5rem; font-weight: 700; }
   .review-body { padding: 0.9rem 1.1rem; }
-  .review-quote { font-family: 'Caveat', cursive; font-size: 1.02rem; color: #d4cfc6; line-height: 1.45; }
-  .review-footer { display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 1.1rem; border-top: 1px solid var(--border); }
-  .review-date { font-size: 0.58rem; color: var(--muted); letter-spacing: 0.06em; }
-  .review-revisit { font-size: 0.6rem; padding: 0.18rem 0.55rem; border-radius: 20px; font-weight: 500; }
+  .review-quote { font-family: 'Caveat', cursive; font-size: 1.02rem; color: #d4cfc6; line-height: 1.45; word-break: break-word; }
+  .review-footer { display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 1.1rem; border-top: 1px solid var(--border); gap: 0.5rem; }
+  .review-date { font-size: 0.58rem; color: var(--muted); letter-spacing: 0.06em; flex-shrink: 0; }
+  .review-revisit { font-size: 0.6rem; padding: 0.18rem 0.55rem; border-radius: 20px; font-weight: 500; flex-shrink: 0; }
   .rv-yes { background: color-mix(in srgb, var(--todo) 15%, transparent); color: var(--todo); }
   .rv-no { background: color-mix(in srgb, #e05a5a 15%, transparent); color: #e05a5a; }
   .rv-maybe { background: color-mix(in srgb, var(--fri) 15%, transparent); color: var(--fri); }
-  /* Always visible delete on mobile */
   .review-del {
     position: absolute; top: 0.5rem; right: 0.6rem; background: none; border: none;
     color: var(--muted); cursor: pointer; font-size: 1rem;
-    min-width: 32px; min-height: 32px; display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
   }
   .review-del:active { color: #e05a5a; }
   .reviews-empty { text-align: center; padding: 3rem 1.5rem; color: var(--muted); font-style: italic; opacity: 0.6; grid-column: 1/-1; }
@@ -284,17 +326,14 @@
   .modal {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 20px 20px 0 0;
-    padding: 1.5rem 1.25rem;
+    padding: 0 1.25rem 1.5rem;
     padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
     width: 100%; animation: slideUp 0.28s ease;
-    max-height: 92dvh; overflow-y: auto;
-    /* drag handle */
-    position: relative;
+    max-height: 92dvh; overflow-y: auto; position: relative;
   }
-  .modal::before {
-    content: ''; display: block; width: 36px; height: 4px;
-    background: var(--border); border-radius: 2px;
-    margin: 0 auto 1.25rem;
+  .modal-handle {
+    width: 36px; height: 4px; background: var(--border); border-radius: 2px;
+    margin: 0.9rem auto 1.25rem; flex-shrink: 0;
   }
   .modal h2 { font-family: 'Playfair Display', serif; font-size: 1.25rem; font-style: italic; margin-bottom: 1.25rem; }
   .form-group { margin-bottom: 0.9rem; }
@@ -302,7 +341,6 @@
   input[type=text], input[type=time], textarea, select {
     width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
     color: var(--text); padding: 0.75rem 0.9rem; font-family: 'DM Mono', monospace;
-    /* prevent iOS zoom: must be ≥16px */
     font-size: max(16px, 0.83rem);
     outline: none; transition: border-color 0.2s;
     -webkit-appearance: none; appearance: none;
@@ -358,48 +396,47 @@
   }
   #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
-  /* ── DESKTOP OVERRIDES ── */
+  /* ── DESKTOP ── */
   @media (min-width: 640px) {
     body { padding-bottom: 0; }
     .top-nav { display: flex; }
-    .bottom-nav { display: none !important; }
+    .mobile-top-bar, .bottom-nav { display: none !important; }
     .page { padding: 2rem; }
+    .schedule-header { display: flex; }
     .grid { grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
     .modal-overlay { align-items: center; }
-    .modal {
-      border-radius: 16px; width: min(480px, 92vw);
-      padding: 2rem; max-height: 90vh;
-    }
-    .modal::before { display: none; }
+    .modal { border-radius: 16px; width: min(520px, 92vw); padding: 2rem; max-height: 90vh; }
+    .modal-handle { display: none; }
     input[type=text], input[type=time], textarea, select { font-size: 0.83rem; }
-    .todo-add-row input { font-size: 0.87rem; }
-    .event-delete { opacity: 0; }
+    .event-delete { opacity: 0; transition: opacity 0.2s; }
     .event-card:hover .event-delete { opacity: 1; }
-    .todo-del { opacity: 0; }
+    .todo-del { opacity: 0; transition: opacity 0.2s; }
     .todo-item:hover .todo-del { opacity: 1; }
-    .review-del { opacity: 0; }
+    .review-del { opacity: 0; transition: opacity 0.2s; }
     .review-card:hover .review-del { opacity: 1; }
     #toast { bottom: 1.5rem; }
+    .criterion-slider { height: 4px; }
     .criterion-slider::-webkit-slider-thumb { width: 16px; height: 16px; }
     .criterion-slider::-moz-range-thumb { width: 16px; height: 16px; }
-    .criterion-slider { height: 4px; }
+    .boyle-subtitle { display: block; }
+    .boyle-add-btn { display: flex; }
+    .todo-header { display: flex; }
+    .boyle-header { display: flex; }
   }
 
-  /* ── MOBILE ONLY ── */
+  /* ── MOBILE ── */
   @media (max-width: 639px) {
     .top-nav { display: none; }
+    .mobile-top-bar { display: flex; }
     .bottom-nav { display: block; }
-    /* Stack schedule days vertically — swipe through days */
-    .grid { grid-template-columns: 1fr; gap: 0.85rem; }
-    .events-list { min-height: 60px; }
-    /* Boyle header compact */
-    .boyle-badge { font-size: 2.5rem; }
-    .boyle-subtitle { display: none; }
+    /* Hide the in-page headers on mobile — top bar takes over */
+    .schedule-header { display: none; }
+    .todo-header { display: none; }
+    .boyle-header { display: none; }
+    .grid { grid-template-columns: 1fr; gap: 0.75rem; }
     .reviews-grid { grid-template-columns: 1fr; }
-    .todo-list { max-width: 100%; }
-    /* Boyle modal wider */
-    #boyle-modal .modal { padding-left: 1rem; padding-right: 1rem; }
-    .row-2 { grid-template-columns: 1fr; gap: 0; }
+    .boyle-subtitle { display: none; }
+    .row-2 { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -415,6 +452,19 @@
     <button class="nav-tab" data-page="boyle" onclick="showPage('boyle')"><span class="tab-icon">🍽️</span> Boyle Reviews</button>
   </div>
 </nav>
+
+<!-- MOBILE TOP BAR -->
+<div class="mobile-top-bar" id="mobile-top-bar">
+  <div class="mobile-top-bar-inner">
+    <span class="app-name">The <span style="color:var(--fri)">Weekend</span></span>
+    <div class="mobile-week-nav" id="mobile-week-nav">
+      <button onclick="changeWeek(-1)">‹</button>
+      <span id="mobile-week-label"></span>
+      <button onclick="changeWeek(1)">›</button>
+    </div>
+    <button class="mobile-top-action" id="mobile-top-action" style="background:var(--boyle)" onclick="openBoyleModal()">+ Review</button>
+  </div>
+</div>
 
 <div class="bottom-nav">
   <div class="bottom-nav-inner">
@@ -602,6 +652,11 @@ function showPage(p) {
   document.querySelectorAll('.nav-tab, .bottom-tab').forEach(el => el.classList.remove('active'));
   document.getElementById('page-'+p).classList.add('active');
   document.querySelectorAll(`[data-page="${p}"]`).forEach(el => el.classList.add('active'));
+  // Mobile top bar context switching
+  const weekNav = document.getElementById('mobile-week-nav');
+  const action = document.getElementById('mobile-top-action');
+  if (weekNav) weekNav.classList.toggle('visible', p === 'schedule');
+  if (action) action.classList.toggle('visible', p === 'boyle');
 }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.modal-overlay').forEach(mo => {
@@ -637,7 +692,10 @@ function fmtTime(t) {
 function changeWeek(d){ weekOffset+=d; renderSchedule(); }
 
 async function renderSchedule() {
-  document.getElementById('week-label').textContent=weekLabel(weekOffset);
+  const lbl = weekLabel(weekOffset);
+  document.getElementById('week-label').textContent = lbl;
+  const mLbl = document.getElementById('mobile-week-label');
+  if (mLbl) mLbl.textContent = lbl;
   const wk=weekStr(weekOffset), dates=getWeekDates(weekOffset);
   const grid=document.getElementById('sched-grid');
   grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:2rem;font-size:0.8rem">Loading...</div>`;
@@ -960,6 +1018,7 @@ async function renderReviews() {
 }
 
 // ── INIT ──
+showPage('schedule');
 renderSchedule();
 renderTodos();
 renderReviews();
