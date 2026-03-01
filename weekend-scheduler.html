@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Weekend</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&family=Caveat:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --fri: #e8c547;
+    --sat: #f0855a;
+    --sun: #6ab4f5;
+    --bg: #0f0e0c;
+    --surface: #1a1916;
+    --surface2: #242220;
+    --text: #f0ede6;
+    --muted: #6b6860;
+    --border: #2e2c29;
+    --boyle: #c8a96e;
+    --todo: #7ec896;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Mono', monospace; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* NAV */
+  nav {
+    display: flex; align-items: center; gap: 0;
+    padding: 0 2rem; border-bottom: 1px solid var(--border);
+    background: var(--surface); position: sticky; top: 0; z-index: 50;
+  }
+  .nav-logo {
+    font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.25rem;
+    color: var(--fri); padding: 1rem 1.5rem 1rem 0; border-right: 1px solid var(--border);
+    margin-right: 0.5rem; white-space: nowrap;
+  }
+  .nav-tabs { display: flex; flex: 1; }
+  .nav-tab {
+    padding: 1rem 1.2rem; font-family: 'DM Mono', monospace; font-size: 0.7rem;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+    background: none; border: none; cursor: pointer; border-bottom: 2px solid transparent;
+    margin-bottom: -1px; transition: color 0.2s, border-color 0.2s; white-space: nowrap;
+  }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active[data-page="schedule"] { color: var(--fri); border-bottom-color: var(--fri); }
+  .nav-tab.active[data-page="todo"] { color: var(--todo); border-bottom-color: var(--todo); }
+  .nav-tab.active[data-page="boyle"] { color: var(--boyle); border-bottom-color: var(--boyle); }
+
+  /* PAGES */
+  .page { display: none; padding: 2rem; }
+  .page.active { display: block; }
+
+  /* ══ SCHEDULE ══ */
+  .schedule-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;
+  }
+  .schedule-title { font-family: 'Playfair Display', serif; font-size: clamp(1.6rem,4vw,2.4rem); font-style: italic; }
+  .week-nav { display: flex; align-items: center; gap: 0.75rem; font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; }
+  .week-nav button {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 1rem;
+    display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+  }
+  .week-nav button:hover { background: var(--surface); border-color: var(--muted); }
+  #week-label { min-width: 130px; text-align: center; text-transform: uppercase; letter-spacing: 0.12em; }
+
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+  @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+
+  .day-col { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+  .day-header { padding: 1.1rem 1.4rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+  .day-header .day-name { font-family: 'Playfair Display', serif; font-size: 1.3rem; font-weight: 700; }
+  .day-header .day-date { font-size: 0.63rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  .fri .day-header { background: color-mix(in srgb, var(--fri) 9%, var(--surface)); }
+  .sat .day-header { background: color-mix(in srgb, var(--sat) 9%, var(--surface)); }
+  .sun .day-header { background: color-mix(in srgb, var(--sun) 9%, var(--surface)); }
+  .fri .day-name { color: var(--fri); } .sat .day-name { color: var(--sat); } .sun .day-name { color: var(--sun); }
+  .fri .dot { background: var(--fri); } .sat .dot { background: var(--sat); } .sun .dot { background: var(--sun); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  .events-list { flex: 1; padding: 0.9rem; display: flex; flex-direction: column; gap: 0.6rem; min-height: 180px; }
+  .event-card {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.75rem 1rem; position: relative; animation: slideIn 0.22s ease;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+  .event-card:hover { transform: translateX(3px); }
+  .fri .event-card:hover { border-color: color-mix(in srgb, var(--fri) 40%, transparent); }
+  .sat .event-card:hover { border-color: color-mix(in srgb, var(--sat) 40%, transparent); }
+  .sun .event-card:hover { border-color: color-mix(in srgb, var(--sun) 40%, transparent); }
+  .event-time { font-size: 0.6rem; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 0.2rem; text-transform: uppercase; }
+  .event-title { font-size: 0.87rem; font-weight: 500; color: var(--text); line-height: 1.3; }
+  .event-meta { font-size: 0.67rem; color: var(--muted); margin-top: 0.3rem; }
+  .event-delete {
+    position: absolute; top: 0.4rem; right: 0.55rem; background: none; border: none;
+    color: var(--muted); cursor: pointer; font-size: 1rem; opacity: 0;
+    transition: opacity 0.2s, color 0.2s; line-height: 1;
+  }
+  .event-card:hover .event-delete { opacity: 1; }
+  .event-delete:hover { color: #e05a5a; }
+  .add-btn {
+    margin: 0 0.9rem 0.9rem; padding: 0.52rem; background: none; border: 1px dashed var(--border);
+    color: var(--muted); border-radius: 8px; cursor: pointer; font-family: 'DM Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 0.1em; transition: all 0.2s; width: calc(100% - 1.8rem);
+  }
+  .fri .add-btn:hover { border-color: var(--fri); color: var(--fri); background: color-mix(in srgb, var(--fri) 5%, transparent); }
+  .sat .add-btn:hover { border-color: var(--sat); color: var(--sat); background: color-mix(in srgb, var(--sat) 5%, transparent); }
+  .sun .add-btn:hover { border-color: var(--sun); color: var(--sun); background: color-mix(in srgb, var(--sun) 5%, transparent); }
+  .empty-state { color: var(--muted); font-size: 0.7rem; text-align: center; padding: 1.5rem 1rem; opacity: 0.6; font-style: italic; }
+
+  /* ══ TO-DO ══ */
+  .todo-header {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);
+  }
+  .todo-title { font-family: 'Playfair Display', serif; font-size: clamp(1.6rem,4vw,2.4rem); font-style: italic; }
+  .todo-title span { color: var(--todo); }
+  .todo-stats { font-size: 0.68rem; color: var(--muted); letter-spacing: 0.08em; }
+  .todo-add-row { display: flex; gap: 0.75rem; margin-bottom: 1.25rem; }
+  .todo-add-row input {
+    flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    color: var(--text); padding: 0.78rem 1.1rem; font-family: 'DM Mono', monospace;
+    font-size: 0.87rem; outline: none; transition: border-color 0.2s;
+  }
+  .todo-add-row input:focus { border-color: var(--todo); }
+  .todo-add-row input::placeholder { color: var(--muted); }
+  .todo-add-btn {
+    padding: 0.78rem 1.2rem; background: var(--todo); border: none; border-radius: 10px;
+    color: #0f0e0c; font-family: 'DM Mono', monospace; font-size: 0.78rem; font-weight: 500;
+    cursor: pointer; transition: opacity 0.2s, transform 0.15s; white-space: nowrap;
+  }
+  .todo-add-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+  .todo-filters { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; }
+  .filter-btn {
+    padding: 0.32rem 0.9rem; background: none; border: 1px solid var(--border);
+    border-radius: 20px; color: var(--muted); font-family: 'DM Mono', monospace;
+    font-size: 0.66rem; letter-spacing: 0.1em; cursor: pointer; transition: all 0.2s; text-transform: uppercase;
+  }
+  .filter-btn.active { background: var(--todo); border-color: var(--todo); color: #0f0e0c; }
+  .filter-btn:not(.active):hover { border-color: var(--muted); color: var(--text); }
+  .todo-list { display: flex; flex-direction: column; gap: 0.6rem; max-width: 700px; }
+  .todo-item {
+    display: flex; align-items: center; gap: 0.9rem; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 10px; padding: 0.88rem 1.1rem;
+    animation: slideIn 0.2s ease; transition: border-color 0.2s, transform 0.15s;
+  }
+  .todo-item.done { opacity: 0.45; }
+  .todo-item:hover { transform: translateX(3px); border-color: color-mix(in srgb, var(--todo) 30%, transparent); }
+  .todo-check {
+    width: 20px; height: 20px; border: 2px solid var(--border); border-radius: 50%;
+    cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; background: none;
+  }
+  .todo-check:hover { border-color: var(--todo); }
+  .todo-item.done .todo-check { background: var(--todo); border-color: var(--todo); }
+  .todo-check-inner { width: 8px; height: 8px; background: #0f0e0c; border-radius: 50%; opacity: 0; transition: opacity 0.15s; }
+  .todo-item.done .todo-check-inner { opacity: 1; }
+  .todo-text { flex: 1; font-size: 0.88rem; color: var(--text); }
+  .todo-item.done .todo-text { text-decoration: line-through; color: var(--muted); }
+  .todo-date { font-size: 0.63rem; color: var(--muted); white-space: nowrap; }
+  .todo-del {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 1rem; opacity: 0; transition: opacity 0.2s, color 0.2s; line-height: 1;
+  }
+  .todo-item:hover .todo-del { opacity: 1; }
+  .todo-del:hover { color: #e05a5a; }
+  .todo-empty { color: var(--muted); font-size: 0.78rem; text-align: center; padding: 3rem 1rem; font-style: italic; opacity: 0.6; max-width: 700px; }
+
+  /* ══ BOYLE ══ */
+  .boyle-wrap { max-width: 960px; }
+  .boyle-header {
+    display: flex; gap: 1.5rem; align-items: flex-start;
+    margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border);
+  }
+  .boyle-badge {
+    font-family: 'Caveat', cursive; font-size: 4rem; font-weight: 700; color: var(--boyle);
+    line-height: 1; flex-shrink: 0; text-shadow: 0 0 30px color-mix(in srgb, var(--boyle) 25%, transparent);
+  }
+  .boyle-title { font-family: 'Playfair Display', serif; font-size: clamp(1.5rem,4vw,2.2rem); font-style: italic; line-height: 1.1; }
+  .boyle-title span { color: var(--boyle); }
+  .boyle-subtitle { font-size: 0.68rem; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; margin-top: 0.4rem; }
+  .boyle-add-btn {
+    margin-left: auto; padding: 0.78rem 1.2rem; background: var(--boyle); border: none;
+    border-radius: 10px; color: #0f0e0c; font-family: 'DM Mono', monospace; font-size: 0.76rem;
+    font-weight: 500; cursor: pointer; transition: opacity 0.2s, transform 0.15s; align-self: center; white-space: nowrap; flex-shrink: 0;
+  }
+  .boyle-add-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+
+  .reviews-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; }
+  .review-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden; animation: slideIn 0.25s ease; transition: transform 0.2s, border-color 0.2s; position: relative;
+  }
+  .review-card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--boyle) 35%, transparent); }
+  .review-card-top {
+    background: color-mix(in srgb, var(--boyle) 8%, var(--surface));
+    padding: 1.1rem 1.2rem 0.9rem; border-bottom: 1px solid var(--border);
+  }
+  .review-restaurant { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 700; color: var(--text); line-height: 1.2; }
+  .review-cuisine { font-size: 0.63rem; color: var(--boyle); text-transform: uppercase; letter-spacing: 0.12em; margin-top: 0.2rem; }
+  .review-stars { display: flex; gap: 2px; margin-top: 0.6rem; align-items: center; }
+  .star { font-size: 1.1rem; color: var(--border); }
+  .star.filled { color: var(--boyle); }
+  .boyle-score { font-family: 'Caveat', cursive; font-size: 1.3rem; color: var(--boyle); margin-left: 0.5rem; font-weight: 700; }
+  .review-body { padding: 1rem 1.2rem; }
+  .review-dish { font-size: 0.73rem; color: var(--boyle); font-weight: 500; margin-bottom: 0.4rem; letter-spacing: 0.04em; }
+  .review-quote { font-family: 'Caveat', cursive; font-size: 1.05rem; color: #d4cfc6; line-height: 1.45; }
+  .review-footer { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1.2rem; border-top: 1px solid var(--border); }
+  .review-date { font-size: 0.61rem; color: var(--muted); letter-spacing: 0.08em; }
+  .review-revisit { font-size: 0.63rem; padding: 0.18rem 0.55rem; border-radius: 20px; font-weight: 500; letter-spacing: 0.04em; }
+  .rv-yes { background: color-mix(in srgb, var(--todo) 15%, transparent); color: var(--todo); }
+  .rv-no { background: color-mix(in srgb, #e05a5a 15%, transparent); color: #e05a5a; }
+  .rv-maybe { background: color-mix(in srgb, var(--fri) 15%, transparent); color: var(--fri); }
+  .review-del {
+    position: absolute; top: 0.6rem; right: 0.7rem; background: none; border: none;
+    color: var(--muted); cursor: pointer; font-size: 0.9rem; opacity: 0;
+    transition: opacity 0.2s, color 0.2s;
+  }
+  .review-card:hover .review-del { opacity: 1; }
+  .review-del:hover { color: #e05a5a; }
+  .reviews-empty { text-align: center; padding: 4rem 2rem; color: var(--muted); font-style: italic; opacity: 0.6; grid-column: 1/-1; }
+  .reviews-empty .big { font-family: 'Caveat', cursive; font-size: 3.5rem; font-weight: 700; color: var(--boyle); opacity: 0.35; display: block; margin-bottom: 0.5rem; }
+
+  /* Criteria sliders */
+  .criterion-row { display: grid; grid-template-columns: 90px 1fr 36px; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem; }
+  .criterion-label { font-size: 0.67rem; color: var(--text); letter-spacing: 0.04em; text-transform: capitalize; }
+  .criterion-slider {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 4px;
+    background: var(--border); border-radius: 2px; outline: none; cursor: pointer;
+  }
+  .criterion-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--boyle); cursor: pointer; transition: transform 0.15s;
+  }
+  .criterion-slider::-webkit-slider-thumb:hover { transform: scale(1.3); }
+  .criterion-slider::-moz-range-thumb { width:14px; height:14px; border-radius:50%; background:var(--boyle); cursor:pointer; border:none; }
+  .criterion-val { font-family:'Caveat',cursive; font-size:1.1rem; color:var(--boyle); font-weight:700; text-align:right; min-width:28px; }
+  .criterion-note { grid-column:2/4; font-size:0.63rem; color:var(--muted); margin-top:-0.35rem; margin-bottom:0.25rem; font-style:italic; }
+
+  /* Card criteria bars */
+  .criteria-bars { padding: 0.85rem 1.2rem; display:flex; flex-direction:column; gap:0.4rem; }
+  .crit-bar-row { display:grid; grid-template-columns: 80px 1fr 28px; align-items:center; gap:0.5rem; }
+  .crit-bar-label { font-size:0.6rem; color:var(--muted); text-transform:capitalize; letter-spacing:0.03em; }
+  .crit-bar-track { height:4px; background:var(--border); border-radius:2px; overflow:hidden; }
+  .crit-bar-fill { height:100%; border-radius:2px; background:var(--boyle); transition:width 0.4s ease; }
+  .crit-bar-val { font-family:'Caveat',cursive; font-size:0.85rem; color:var(--boyle); font-weight:700; text-align:right; }
+  .crit-note-row { grid-column:1/4; font-size:0.58rem; color:var(--muted); font-style:italic; margin-top:-0.15rem; padding-left:80px; line-height:1.3; margin-bottom:0.15rem; }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(5px); z-index: 200; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 2rem; width: min(440px, 92vw); animation: popIn 0.2s ease;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .modal h2 { font-family: 'Playfair Display', serif; font-size: 1.35rem; font-style: italic; margin-bottom: 1.5rem; }
+  .form-group { margin-bottom: 1rem; }
+  label { display: block; font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.35rem; }
+  input[type=text], input[type=time], textarea, select {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 0.65rem 0.9rem; font-family: 'DM Mono', monospace;
+    font-size: 0.83rem; outline: none; transition: border-color 0.2s;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--muted); }
+  select option { background: var(--surface2); }
+  textarea { resize: vertical; min-height: 70px; }
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .star-picker { display: flex; gap: 4px; }
+  .star-pick {
+    font-size: 1.5rem; cursor: pointer; color: var(--border); transition: color 0.15s, transform 0.1s;
+    background: none; border: none; line-height: 1; padding: 0 2px;
+  }
+  .star-pick:hover, .star-pick.lit { color: var(--boyle); }
+  .star-pick:hover { transform: scale(1.15); }
+  .modal-actions { display: flex; gap: 0.75rem; margin-top: 1.4rem; }
+  .btn-primary {
+    flex: 1; padding: 0.7rem; border: none; border-radius: 8px; cursor: pointer;
+    font-family: 'DM Mono', monospace; font-size: 0.78rem; font-weight: 500;
+    letter-spacing: 0.05em; color: #0f0e0c; transition: opacity 0.2s, transform 0.15s;
+  }
+  .btn-primary:hover { opacity: 0.85; transform: translateY(-1px); }
+  .btn-cancel {
+    padding: 0.7rem 1.2rem; background: none; border: 1px solid var(--border); border-radius: 8px;
+    color: var(--muted); cursor: pointer; font-family: 'DM Mono', monospace; font-size: 0.78rem;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .btn-cancel:hover { border-color: var(--muted); color: var(--text); }
+
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes popIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">The Weekend</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-page="schedule" onclick="showPage('schedule')">📅 Schedule</button>
+    <button class="nav-tab" data-page="todo" onclick="showPage('todo')">✅ To-Do List</button>
+    <button class="nav-tab" data-page="boyle" onclick="showPage('boyle')">🍽️ Boyle Reviews</button>
+  </div>
+</nav>
+
+<!-- SCHEDULE -->
+<div class="page active" id="page-schedule">
+  <div class="schedule-header">
+    <div class="schedule-title">The <span style="color:var(--fri)">Weekend</span></div>
+    <div class="week-nav">
+      <button onclick="changeWeek(-1)">‹</button>
+      <div id="week-label"></div>
+      <button onclick="changeWeek(1)">›</button>
+    </div>
+  </div>
+  <div class="grid" id="sched-grid"></div>
+</div>
+
+<!-- TODO -->
+<div class="page" id="page-todo">
+  <div class="todo-header">
+    <div>
+      <div class="todo-title">The <span>List</span></div>
+      <div style="font-size:0.67rem;color:var(--muted);letter-spacing:0.1em;margin-top:0.3rem;text-transform:uppercase;">things we gotta do</div>
+    </div>
+    <div class="todo-stats" id="todo-stats"></div>
+  </div>
+  <div class="todo-add-row">
+    <input type="text" id="todo-input" placeholder="Add something to the list..." />
+    <button class="todo-add-btn" onclick="addTodo()">+ Add</button>
+  </div>
+  <div class="todo-filters">
+    <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+    <button class="filter-btn" data-filter="active" onclick="setFilter('active')">Active</button>
+    <button class="filter-btn" data-filter="done" onclick="setFilter('done')">Done</button>
+  </div>
+  <div class="todo-list" id="todo-list"></div>
+</div>
+
+<!-- BOYLE -->
+<div class="page" id="page-boyle">
+  <div class="boyle-wrap">
+    <div class="boyle-header">
+      <div class="boyle-badge">CB</div>
+      <div>
+        <div class="boyle-title">Boyle's <span>Food Journal</span></div>
+        <div class="boyle-subtitle">Critical dispatches from the mouth of Charles Boyle</div>
+      </div>
+      <button class="boyle-add-btn" onclick="openBoyleModal()">+ Log Review</button>
+    </div>
+    <div class="reviews-grid" id="reviews-grid"></div>
+  </div>
+</div>
+
+<!-- SCHEDULE MODAL -->
+<div class="modal-overlay" id="sched-modal">
+  <div class="modal">
+    <h2>Add to <span id="sched-modal-day"></span></h2>
+    <div class="form-group">
+      <label>Event</label>
+      <input type="text" id="sf-title" placeholder="What are we doing?" />
+    </div>
+    <div class="form-group">
+      <label>Time</label>
+      <input type="time" id="sf-time" />
+    </div>
+    <div class="form-group">
+      <label>Who's coming</label>
+      <input type="text" id="sf-who" placeholder="everyone, just us..." />
+    </div>
+    <div class="form-group">
+      <label>Notes</label>
+      <textarea id="sf-notes" placeholder="Address, details, vibes..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('sched-modal')">Cancel</button>
+      <button class="btn-primary" id="sched-save-btn" onclick="saveSchedEvent()">Add Event</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOYLE MODAL -->
+<div class="modal-overlay" id="boyle-modal">
+  <div class="modal" style="width:min(580px,95vw)">
+    <h2>Log a <span style="color:var(--boyle)">Review</span></h2>
+    <div class="form-group">
+      <label>Food / Dish Name</label>
+      <input type="text" id="bf-restaurant" placeholder="What are we reviewing today, Charles?" />
+    </div>
+    <div class="row-2">
+      <div class="form-group">
+        <label>Cuisine / Category</label>
+        <input type="text" id="bf-cuisine" placeholder="Cake, Ramen, Tapas..." />
+      </div>
+      <div class="form-group">
+        <label>Date Tasted</label>
+        <input type="text" id="bf-date" placeholder="e.g. Sat Mar 8" />
+      </div>
+    </div>
+
+    <div style="margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid var(--border)">
+      <div style="font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--boyle);margin-bottom:0.75rem;font-weight:500;">The Boyle Criteria™</div>
+      <div id="criteria-list"></div>
+    </div>
+
+    <div class="form-group">
+      <label>Overall Boyle Verdict</label>
+      <textarea id="bf-review" placeholder='Sum it up, Charles. "This cake transcended dessert. It transcended time itself."' style="min-height:70px"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Would You Revisit?</label>
+      <select id="bf-revisit">
+        <option value="yes">Absolutely — already planning it</option>
+        <option value="maybe">Maybe, on a special occasion</option>
+        <option value="no">No — but I respect the journey</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('boyle-modal')">Cancel</button>
+      <button class="btn-primary" style="background:var(--boyle)" onclick="saveBoyleReview()">Log Review</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── UTILS ──
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set(k,v) { localStorage.setItem(k, JSON.stringify(v)); }
+};
+function escH(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function showPage(p) {
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('active');
+  document.querySelector('.nav-tab[data-page="'+p+'"]').classList.add('active');
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(mo => {
+  mo.addEventListener('click', e => { if (e.target===mo) mo.classList.remove('open'); });
+});
+
+// ── SCHEDULE ──
+const DAY_NAMES=['Friday','Saturday','Sunday'], DAY_KEYS=['fri','sat','sun'];
+const DAY_COLORS={fri:'#e8c547',sat:'#f0855a',sun:'#6ab4f5'};
+let weekOffset=0, schedDay=null, schedWk=null;
+
+function getWeekDates(o) {
+  const now=new Date(), day=now.getDay(), dToFri=(5-day+7)%7;
+  const fri=new Date(now); fri.setDate(now.getDate()+dToFri+o*7); fri.setHours(0,0,0,0);
+  const sat=new Date(fri); sat.setDate(fri.getDate()+1);
+  const sun=new Date(fri); sun.setDate(fri.getDate()+2);
+  return [fri,sat,sun];
+}
+function weekStr(o) { return getWeekDates(o)[0].toISOString().slice(0,10); }
+function weekLabel(o) {
+  const [f,,s]=getWeekDates(o), fmt=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  return fmt(f)+' – '+fmt(s);
+}
+function fmtTime(t) {
+  if(!t) return ''; const [h,m]=t.split(':').map(Number);
+  return (h%12||12)+':'+String(m).padStart(2,'0')+' '+(h>=12?'PM':'AM');
+}
+function changeWeek(d){ weekOffset+=d; renderSchedule(); }
+function getSchedEvs(wk,dk){ return store.get('s_'+wk+'_'+dk)||[]; }
+function setSchedEvs(wk,dk,v){ store.set('s_'+wk+'_'+dk,v); }
+
+function renderSchedule() {
+  document.getElementById('week-label').textContent=weekLabel(weekOffset);
+  const wk=weekStr(weekOffset), dates=getWeekDates(weekOffset);
+  const grid=document.getElementById('sched-grid'); grid.innerHTML='';
+  DAY_KEYS.forEach((dk,i)=>{
+    const evs=getSchedEvs(wk,dk);
+    const col=document.createElement('div'); col.className='day-col '+dk;
+    const evHtml=evs.length===0?'<div class="empty-state">nothing yet...</div>':evs.map((ev,idx)=>`
+      <div class="event-card">
+        <button class="event-delete" onclick="delSchedEv('${wk}','${dk}',${idx})">×</button>
+        ${ev.time?'<div class="event-time">'+fmtTime(ev.time)+'</div>':''}
+        <div class="event-title">${escH(ev.title)}</div>
+        ${ev.who?'<div class="event-meta">👥 '+escH(ev.who)+'</div>':''}
+        ${ev.notes?'<div class="event-meta">📍 '+escH(ev.notes)+'</div>':''}
+      </div>`).join('');
+    col.innerHTML=`
+      <div class="day-header">
+        <div>
+          <div class="day-name">${DAY_NAMES[i]}</div>
+          <div class="day-date">${dates[i].toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <span style="font-size:.63rem;color:var(--muted)">${evs.length||''}</span>
+          <div class="dot"></div>
+        </div>
+      </div>
+      <div class="events-list">${evHtml}</div>
+      <button class="add-btn" onclick="openSchedModal('${dk}','${wk}')">+ add event</button>`;
+    grid.appendChild(col);
+  });
+}
+
+function openSchedModal(dk,wk) {
+  schedDay=dk; schedWk=wk;
+  const i=DAY_KEYS.indexOf(dk), c=DAY_COLORS[dk];
+  const dn=document.getElementById('sched-modal-day');
+  dn.textContent=DAY_NAMES[i]; dn.style.color=c;
+  document.getElementById('sched-save-btn').style.background=c;
+  ['sf-title','sf-who','sf-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('sf-time').value='';
+  document.getElementById('sched-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('sf-title').focus(),100);
+}
+
+function saveSchedEvent() {
+  const title=document.getElementById('sf-title').value.trim();
+  if(!title){ document.getElementById('sf-title').style.borderColor='#e05a5a'; return; }
+  document.getElementById('sf-title').style.borderColor='';
+  const ev={title,time:document.getElementById('sf-time').value,who:document.getElementById('sf-who').value.trim(),notes:document.getElementById('sf-notes').value.trim()};
+  const evs=getSchedEvs(schedWk,schedDay);
+  evs.push(ev); evs.sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
+  setSchedEvs(schedWk,schedDay,evs); closeModal('sched-modal'); renderSchedule();
+}
+
+function delSchedEv(wk,dk,idx) {
+  const evs=getSchedEvs(wk,dk); evs.splice(idx,1); setSchedEvs(wk,dk,evs); renderSchedule();
+}
+
+document.getElementById('sf-title').addEventListener('keydown',e=>{ if(e.key==='Enter') saveSchedEvent(); });
+
+// ── TODO ──
+let todoFilter='all';
+function getTodos(){ return store.get('todos_v2')||[]; }
+function saveTodos(t){ store.set('todos_v2',t); }
+
+function addTodo() {
+  const inp=document.getElementById('todo-input'), text=inp.value.trim(); if(!text) return;
+  const todos=getTodos();
+  todos.unshift({id:Date.now(),text,done:false,date:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'})});
+  saveTodos(todos); inp.value=''; renderTodos();
+}
+
+function toggleTodo(id){ saveTodos(getTodos().map(t=>t.id===id?{...t,done:!t.done}:t)); renderTodos(); }
+function deleteTodo(id){ saveTodos(getTodos().filter(t=>t.id!==id)); renderTodos(); }
+
+function setFilter(f) {
+  todoFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.toggle('active',b.dataset.filter===f));
+  renderTodos();
+}
+
+function renderTodos() {
+  const all=getTodos();
+  const filtered=todoFilter==='all'?all:all.filter(t=>todoFilter==='done'?t.done:!t.done);
+  const done=all.filter(t=>t.done).length;
+  document.getElementById('todo-stats').textContent=done+'/'+all.length+' done';
+  const list=document.getElementById('todo-list');
+  if(filtered.length===0){
+    list.innerHTML='<div class="todo-empty">'+(todoFilter==='done'?'nothing done yet...':todoFilter==='active'?'all clear! 🎉':'the list is empty...')+'</div>'; return;
+  }
+  list.innerHTML=filtered.map(t=>`
+    <div class="todo-item ${t.done?'done':''}">
+      <button class="todo-check" onclick="toggleTodo(${t.id})"><div class="todo-check-inner"></div></button>
+      <span class="todo-text">${escH(t.text)}</span>
+      <span class="todo-date">${escH(t.date)}</span>
+      <button class="todo-del" onclick="deleteTodo(${t.id})">×</button>
+    </div>`).join('');
+}
+
+document.getElementById('todo-input').addEventListener('keydown',e=>{ if(e.key==='Enter') addTodo(); });
+
+// ── BOYLE ──
+const CRITERIA = [
+  { key:'bitter',      label:'Bitter',      hint:'How bitter is it?' },
+  { key:'aftertaste',  label:'Aftertaste',  hint:'What lingers after?' },
+  { key:'texture',     label:'Texture',     hint:'Rough? Smooth? Contrast?' },
+  { key:'sweet',       label:'Sweet',       hint:'Level of sweetness' },
+  { key:'sour',        label:'Sour',        hint:'Any tartness?' },
+  { key:'umami',       label:'Umami',       hint:'That deep savouriness' },
+  { key:'mouthfeel',   label:'Mouthfeel',   hint:'Buttery? Watery? Velvety?' },
+  { key:'odour',       label:'Odour',       hint:'What does it smell like?' },
+  { key:'salty',       label:'Salty',       hint:'Salt presence' },
+  { key:'presentation',label:'Presentation',hint:'The visual drama' },
+  { key:'consistency', label:'Consistency', hint:'Is it what you expected?' },
+  { key:'sound',       label:'Sound',       hint:'The acoustic experience' },
+  { key:'spice',       label:'Spice',       hint:'Heat level' },
+  { key:'astringency', label:'Astringency', hint:'Drying, puckering sensation' },
+];
+
+let criteriaScores = {};
+let criteriaNotes = {};
+
+function buildCriteriaForm() {
+  const el = document.getElementById('criteria-list');
+  el.innerHTML = CRITERIA.map(c => `
+    <div>
+      <div class="criterion-row">
+        <div class="criterion-label">${c.label}</div>
+        <input type="range" class="criterion-slider" min="0" max="10" value="${criteriaScores[c.key]??5}"
+          id="cs-${c.key}" oninput="updateCritVal('${c.key}',this.value)" />
+        <div class="criterion-val" id="cv-${c.key}">${criteriaScores[c.key]??5}</div>
+      </div>
+      <div class="criterion-note" style="grid-template-columns:unset;display:grid;grid-template-columns:90px 1fr;gap:0.6rem;margin-bottom:0.4rem">
+        <div></div>
+        <input type="text" id="cn-${c.key}" placeholder="${c.hint}" value="${escH(criteriaNotes[c.key]||'')}"
+          style="font-size:0.68rem;padding:0.3rem 0.6rem;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:6px;outline:none;font-family:'DM Mono',monospace" />
+      </div>
+    </div>`).join('');
+}
+
+function updateCritVal(key, val) {
+  criteriaScores[key] = parseInt(val);
+  document.getElementById('cv-'+key).textContent = val;
+}
+
+function getReviews(){ return store.get('boyle_v3')||[]; }
+function saveReviews(r){ store.set('boyle_v3',r); }
+
+function openBoyleModal() {
+  criteriaScores = {}; criteriaNotes = {};
+  CRITERIA.forEach(c => { criteriaScores[c.key]=5; criteriaNotes[c.key]=''; });
+  ['bf-restaurant','bf-cuisine','bf-date','bf-review'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('bf-revisit').value='yes';
+  buildCriteriaForm();
+  document.getElementById('boyle-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('bf-restaurant').focus(),100);
+}
+
+function saveBoyleReview() {
+  const restaurant=document.getElementById('bf-restaurant').value.trim();
+  if(!restaurant){ document.getElementById('bf-restaurant').style.borderColor='#e05a5a'; return; }
+  document.getElementById('bf-restaurant').style.borderColor='';
+
+  // read slider + note values from DOM
+  const scores={}, notes={};
+  CRITERIA.forEach(c=>{
+    scores[c.key]=parseInt(document.getElementById('cs-'+c.key).value);
+    notes[c.key]=document.getElementById('cn-'+c.key).value.trim();
+  });
+
+  const total=Object.values(scores).reduce((a,b)=>a+b,0);
+  const avg=(total/CRITERIA.length).toFixed(1);
+
+  const r={
+    id:Date.now(), restaurant,
+    cuisine:document.getElementById('bf-cuisine').value.trim(),
+    date:document.getElementById('bf-date').value.trim()||new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
+    scores, notes, avg,
+    review:document.getElementById('bf-review').value.trim(),
+    revisit:document.getElementById('bf-revisit').value
+  };
+  const reviews=getReviews(); reviews.unshift(r); saveReviews(reviews);
+  closeModal('boyle-modal'); renderReviews();
+}
+
+function deleteReview(id){ saveReviews(getReviews().filter(r=>r.id!==id)); renderReviews(); }
+
+const RV_LABELS={yes:'Would Revisit ✓',maybe:'Maybe Revisit',no:'Would Not Revisit'};
+const RV_CLS={yes:'rv-yes',maybe:'rv-maybe',no:'rv-no'};
+
+// Score to colour: 0=grey, low=red, mid=amber, high=green
+function scoreColor(n) {
+  if(n<=2) return '#888';
+  if(n<=4) return '#e05a5a';
+  if(n<=6) return '#e8c547';
+  if(n<=8) return '#c8a96e';
+  return '#7ec896';
+}
+
+function renderReviews() {
+  const reviews=getReviews();
+  const grid=document.getElementById('reviews-grid');
+  if(reviews.length===0){
+    grid.innerHTML='<div class="reviews-empty"><span class="big">CB</span>No reviews yet.<br>Start logging your culinary adventures!</div>'; return;
+  }
+  grid.innerHTML=reviews.map(r=>{
+    // show top 5 scored criteria (non-zero, highest first)
+    const sorted = CRITERIA.map(c=>({...c, score:r.scores?.[c.key]??0, note:r.notes?.[c.key]||''}))
+      .filter(c=>c.score>0)
+      .sort((a,b)=>b.score-a.score);
+    const topCrit = sorted.slice(0,6);
+
+    const barsHtml = topCrit.map(c=>`
+      <div class="crit-bar-row">
+        <div class="crit-bar-label">${c.label}</div>
+        <div class="crit-bar-track"><div class="crit-bar-fill" style="width:${c.score*10}%;background:${scoreColor(c.score)}"></div></div>
+        <div class="crit-bar-val" style="color:${scoreColor(c.score)}">${c.score}</div>
+      </div>
+      ${c.note?`<div class="crit-note-row">${escH(c.note)}</div>`:''}`).join('');
+
+    return `
+    <div class="review-card">
+      <button class="review-del" onclick="deleteReview(${r.id})">×</button>
+      <div class="review-card-top">
+        <div class="review-restaurant">${escH(r.restaurant)}</div>
+        ${r.cuisine?'<div class="review-cuisine">'+escH(r.cuisine)+'</div>':''}
+        <div style="display:flex;align-items:baseline;gap:0.5rem;margin-top:0.6rem">
+          <span class="boyle-score" style="font-size:2rem">${r.avg||'?'}</span>
+          <span style="font-size:0.6rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">/ 10 avg</span>
+        </div>
+      </div>
+      <div class="criteria-bars">${barsHtml}</div>
+      ${r.review?`<div class="review-body"><div class="review-quote">"${escH(r.review)}"</div></div>`:''}
+      <div class="review-footer">
+        <span class="review-date">${escH(r.date)}</span>
+        <span class="review-revisit ${RV_CLS[r.revisit]}">${RV_LABELS[r.revisit]}</span>
+      </div>
+    </div>`}).join('');
+}
+
+// ── INIT ──
+renderSchedule();
+renderTodos();
+renderReviews();
+</script>
+</body>
+</html>
