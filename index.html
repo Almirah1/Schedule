@@ -21,7 +21,7 @@
     --boyle: #c8a96e;
     --todo: #7ec896;
     --nav-h: 56px;
-    --bottom-nav-h: calc(60px + max(env(safe-area-inset-bottom), 0px));
+    --bottom-nav-h: calc(60px + env(safe-area-inset-bottom, 20px));
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -66,47 +66,52 @@
     position: sticky; top: 0; z-index: 50;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
-    /* push below status bar */
     padding-top: env(safe-area-inset-top);
     padding-left: env(safe-area-inset-left, 0px);
     padding-right: env(safe-area-inset-right, 0px);
     width: 100%;
     flex-direction: column;
   }
-  .mobile-top-bar-inner {
-    display: flex; align-items: center; gap: 0.75rem;
-    padding: 0 1rem;
-    height: 52px; width: 100%;
+  /* Row 1: App name only */
+  .mobile-top-row1 {
+    display: flex; align-items: center;
+    padding: 0.5rem 1rem 0.15rem;
   }
   .mobile-top-bar .app-name {
     font-family: 'Playfair Display', serif; font-style: italic;
-    font-size: 1.2rem; color: var(--text); line-height: 1; flex: 1; min-width: 0;
+    font-size: 1.3rem; color: var(--fri); line-height: 1;
   }
-  .mobile-top-bar .app-name {
-    font-family: 'Playfair Display', serif; font-style: italic;
-    font-size: 1.2rem; color: var(--fri); line-height: 1; flex: 1; min-width: 0;
+  /* Row 2: vibe pill + week nav / action button */
+  .mobile-top-row2 {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0 1rem 0.55rem;
   }
-  /* Week nav inside mobile top bar — only visible on schedule page */
+  #vibe-pill {
+    font-size: 0.58rem; padding: 0.2rem 0.65rem; border-radius: 20px;
+    font-family: 'DM Mono', monospace; font-weight: 500; letter-spacing: 0.05em;
+    flex-shrink: 0; white-space: nowrap;
+  }
+  /* Week nav inside mobile top bar */
   .mobile-week-nav {
-    display: none; align-items: center; gap: 0.4rem; flex-shrink: 0;
+    display: none; align-items: center; gap: 0.35rem; margin-left: auto; flex-shrink: 0;
   }
   .mobile-week-nav.visible { display: flex; }
   .mobile-week-nav button {
     background: var(--surface2); border: 1px solid var(--border); color: var(--text);
-    width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 1rem;
+    width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 0.95rem;
     display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
   .mobile-week-nav button:active { transform: scale(0.88); opacity: 0.7; }
   #mobile-week-label {
-    font-size: 0.58rem; text-align: center; text-transform: uppercase;
+    font-size: 0.56rem; text-align: center; text-transform: uppercase;
     letter-spacing: 0.07em; color: var(--muted); white-space: nowrap;
   }
   /* Action button in top bar (e.g. + Log Review) */
   .mobile-top-action {
-    display: none; flex-shrink: 0;
-    padding: 0.45rem 0.85rem; border: none; border-radius: 8px;
-    font-family: 'DM Mono', monospace; font-size: 0.68rem; font-weight: 500;
-    color: #0f0e0c; cursor: pointer; white-space: nowrap; min-height: 36px;
+    display: none; flex-shrink: 0; margin-left: auto;
+    padding: 0.38rem 0.8rem; border: none; border-radius: 8px;
+    font-family: 'DM Mono', monospace; font-size: 0.65rem; font-weight: 500;
+    color: #0f0e0c; cursor: pointer; white-space: nowrap; min-height: 32px;
   }
   .mobile-top-action.visible { display: flex; align-items: center; }
   .mobile-top-action:active { opacity: 0.7; }
@@ -117,12 +122,15 @@
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
     background: var(--surface);
     border-top: 1px solid var(--border);
-    /* extend background all the way to physical bottom edge */
-    padding-bottom: max(env(safe-area-inset-bottom), 0px);
   }
   .bottom-nav-inner {
     display: grid; grid-template-columns: repeat(3, 1fr);
     height: 60px;
+  }
+  /* This block fills the gap between nav and physical screen edge */
+  .bottom-nav-fill {
+    height: env(safe-area-inset-bottom, 20px);
+    background: var(--surface);
   }
   .bottom-tab {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -130,15 +138,6 @@
     color: var(--muted); font-family: 'DM Mono', monospace;
     font-size: 0.55rem; letter-spacing: 0.08em; text-transform: uppercase;
     transition: color 0.15s; padding: 0;
-  }
-  .bottom-nav::after {
-    content: '';
-    display: block;
-    position: absolute;
-    bottom: calc(-1 * env(safe-area-inset-bottom));
-    left: 0; right: 0;
-    height: env(safe-area-inset-bottom);
-    background: var(--surface);
   }
   .bottom-tab .b-icon { font-size: 1.3rem; line-height: 1; }
   .bottom-tab.active[data-page="schedule"] { color: var(--fri); }
@@ -501,8 +500,11 @@
 
 <!-- MOBILE TOP BAR -->
 <div class="mobile-top-bar" id="mobile-top-bar">
-  <div class="mobile-top-bar-inner">
-    <span class="app-name">The <span style="color:var(--fri)">Weekend</span></span>
+  <div class="mobile-top-row1">
+    <span class="app-name">The Weekend</span>
+  </div>
+  <div class="mobile-top-row2">
+    <span id="vibe-pill"></span>
     <div class="mobile-week-nav" id="mobile-week-nav">
       <button onclick="changeWeek(-1)">‹</button>
       <span id="mobile-week-label"></span>
@@ -524,6 +526,7 @@
       <span class="b-icon">🍽️</span>Boyle
     </button>
   </div>
+  <div class="bottom-nav-fill"></div>
 </div>
 
 <!-- SCHEDULE -->
@@ -739,7 +742,7 @@ function getWeekVibe(offset) {
 
 // Date weekend: ocean & ice — deep teal, sky blue, ice blue
 const DATE_COLORS = { fri:'#1a8a9a', sat:'#4db8d4', sun:'#a8dce8' };
-const DATE_VIBE_LABEL = '💃 Date Weekend';
+const DATE_VIBE_LABEL = '🌙 Going Out';
 const DATE_VIBE_COLOR = '#4db8d4';
 
 // Home weekend: forest & moss — deep forest green, moss, warm ochre
@@ -793,18 +796,13 @@ async function renderSchedule() {
   const vibeAccent = vibe === 'date' ? DATE_VIBE_COLOR : HOME_VIBE_COLOR;
 
   // Update mobile top bar vibe pill
-  let vibePill = document.getElementById('vibe-pill');
-  if (!vibePill) {
-    vibePill = document.createElement('span');
-    vibePill.id = 'vibe-pill';
-    vibePill.style.cssText = `font-size:0.58rem;padding:0.18rem 0.6rem;border-radius:20px;font-family:'DM Mono',monospace;font-weight:500;letter-spacing:0.04em;flex-shrink:0;`;
-    const mobileInner = document.querySelector('.mobile-top-bar-inner');
-    if (mobileInner) mobileInner.insertBefore(vibePill, mobileInner.querySelector('.mobile-week-nav'));
+  const vibePill = document.getElementById('vibe-pill');
+  if (vibePill) {
+    vibePill.textContent = vibeLabel;
+    vibePill.style.background = `color-mix(in srgb, ${vibeAccent} 15%, var(--surface2))`;
+    vibePill.style.color = vibeAccent;
+    vibePill.style.border = `1px solid color-mix(in srgb, ${vibeAccent} 30%, transparent)`;
   }
-  vibePill.textContent = vibeLabel;
-  vibePill.style.background = `color-mix(in srgb, ${vibeAccent} 15%, var(--surface2))`;
-  vibePill.style.color = vibeAccent;
-  vibePill.style.border = `1px solid color-mix(in srgb, ${vibeAccent} 30%, transparent)`;
 
   // Inject per-week CSS custom properties so all day-colour rules pick them up
   let styleTag = document.getElementById('week-vibe-style');
@@ -831,7 +829,7 @@ async function renderSchedule() {
   // Vibe banner below week nav on desktop / top of page on mobile
   const banner = document.createElement('div');
   banner.style.cssText = `grid-column:1/-1;display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:${vibeAccent};font-family:'DM Mono',monospace;`;
-  banner.innerHTML = `<span style="font-size:1rem">${vibe==='date'?'💃':'🏠'}</span> ${vibe==='date'?'Date Weekend':'Home Weekend'}`;
+  banner.innerHTML = `<span style="font-size:1rem">${vibe==='date'?'🌙':'🏠'}</span> ${vibe==='date'?'Going Out Weekend':'Home Weekend'}`;
   grid.appendChild(banner);
 
   DAY_KEYS.forEach((dk,i)=>{
