@@ -181,6 +181,18 @@
     width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
   }
   .event-delete:active { color: #e05a5a; }
+  /* Edit button on event card */
+  .event-edit {
+    position: absolute; top: 0.4rem; right: 0.4rem;
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 0.75rem; letter-spacing: 0.04em;
+    width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+    border-radius: 6px;
+  }
+  .event-edit:active { color: var(--text); background: var(--surface); }
+  /* On mobile both edit+delete always visible; on desktop via hover */
+  .event-card { padding: 0.65rem 4.4rem 0.65rem 0.75rem; }
+  .event-wear { font-size: 0.62rem; color: var(--boyle); margin-top: 0.25rem; }
   .add-btn {
     margin: 0 0.65rem 0.65rem; padding: 0.65rem; background: none; border: 1px dashed var(--border);
     color: var(--muted); border-radius: 8px; cursor: pointer; font-family: 'DM Mono', monospace;
@@ -244,6 +256,28 @@
   }
   .todo-del:active { color: #e05a5a; }
   .todo-empty { color: var(--muted); font-size: 0.78rem; text-align: center; padding: 3rem 1rem; font-style: italic; opacity: 0.6; }
+
+  /* Vibe picker (add row) */
+  .todo-vibe-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+  .vibe-btn {
+    padding: 0.42rem 1rem; background: none; border: 1px solid var(--border);
+    border-radius: 20px; color: var(--muted); font-family: 'DM Mono', monospace;
+    font-size: 0.72rem; cursor: pointer; transition: all 0.15s; min-height: 36px;
+  }
+  .vibe-btn.active[data-vibe="home"] { background: color-mix(in srgb, #a8d8a8 12%, var(--surface2)); border-color: #a8d8a8; color: #a8d8a8; }
+  .vibe-btn.active[data-vibe="date"] { background: color-mix(in srgb, var(--sat) 12%, var(--surface2)); border-color: var(--sat); color: var(--sat); }
+  .vibe-btn:active { opacity: 0.7; }
+
+  /* Vibe tag on todo item */
+  .todo-vibe-tag {
+    font-size: 0.58rem; padding: 0.12rem 0.5rem; border-radius: 20px; font-weight: 500;
+    white-space: nowrap; flex-shrink: 0; letter-spacing: 0.03em;
+  }
+  .vibe-home { background: color-mix(in srgb, #a8d8a8 12%, transparent); color: #a8d8a8; }
+  .vibe-date { background: color-mix(in srgb, var(--sat) 12%, transparent); color: var(--sat); }
+
+  /* Filter divider */
+  .filter-divider { width: 1px; background: var(--border); margin: 0.2rem 0.15rem; align-self: stretch; }
 
   /* ── BOYLE ── */
   .boyle-wrap { max-width: 960px; }
@@ -409,7 +443,9 @@
     .modal-handle { display: none; }
     input[type=text], input[type=time], textarea, select { font-size: 0.83rem; }
     .event-delete { opacity: 0; transition: opacity 0.2s; }
+    .event-edit { opacity: 0; transition: opacity 0.2s; }
     .event-card:hover .event-delete { opacity: 1; }
+    .event-card:hover .event-edit { opacity: 1; }
     .todo-del { opacity: 0; transition: opacity 0.2s; }
     .todo-item:hover .todo-del { opacity: 1; }
     .review-del { opacity: 0; transition: opacity 0.2s; }
@@ -506,10 +542,17 @@
     <input type="text" id="todo-input" placeholder="Add something to the list..." />
     <button class="todo-add-btn" onclick="addTodo()">+ Add</button>
   </div>
+  <div class="todo-vibe-row">
+    <button class="vibe-btn active" data-vibe="home" onclick="selectVibe('home')">🏠 At Home</button>
+    <button class="vibe-btn" data-vibe="date" onclick="selectVibe('date')">💃 Date</button>
+  </div>
   <div class="todo-filters">
     <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
     <button class="filter-btn" data-filter="active" onclick="setFilter('active')">Active</button>
     <button class="filter-btn" data-filter="done" onclick="setFilter('done')">Done</button>
+    <div class="filter-divider"></div>
+    <button class="filter-btn" data-filter="home" onclick="setFilter('home')">🏠</button>
+    <button class="filter-btn" data-filter="date" onclick="setFilter('date')">💃</button>
   </div>
   <div class="todo-list" id="todo-list"></div>
 </div>
@@ -532,14 +575,25 @@
 <!-- SCHEDULE MODAL -->
 <div class="modal-overlay" id="sched-modal">
   <div class="modal">
-    <h2>Add to <span id="sched-modal-day"></span></h2>
+    <div class="modal-handle"></div>
+    <h2 id="sched-modal-title">Add to <span id="sched-modal-day"></span></h2>
     <div class="form-group">
       <label>Event</label>
       <input type="text" id="sf-title" placeholder="What are we doing?" />
     </div>
+    <div class="row-2">
+      <div class="form-group">
+        <label>Start time</label>
+        <input type="time" id="sf-time" />
+      </div>
+      <div class="form-group">
+        <label>End time</label>
+        <input type="time" id="sf-end-time" />
+      </div>
+    </div>
     <div class="form-group">
-      <label>Time</label>
-      <input type="time" id="sf-time" />
+      <label>What to wear 👗</label>
+      <input type="text" id="sf-wear" placeholder="smart casual, all black, cosy..." />
     </div>
     <div class="form-group">
       <label>Added by</label>
@@ -666,7 +720,7 @@ document.querySelectorAll('.modal-overlay').forEach(mo => {
 // ── SCHEDULE ──
 const DAY_NAMES=['Friday','Saturday','Sunday'], DAY_KEYS=['fri','sat','sun'];
 const DAY_COLORS={fri:'#e8c547',sat:'#f0855a',sun:'#6ab4f5'};
-let weekOffset=0, schedDay=null, schedWk=null, schedAddedBy='Almi';
+let weekOffset=0, schedDay=null, schedWk=null, schedAddedBy='Almi', editingEvId=null;
 
 function selectWho(name) {
   schedAddedBy = name;
@@ -688,6 +742,11 @@ function weekLabel(o) {
 function fmtTime(t) {
   if(!t) return ''; const [h,m]=t.split(':').map(Number);
   return (h%12||12)+':'+String(m).padStart(2,'0')+' '+(h>=12?'PM':'AM');
+}
+function fmtTimeRange(start, end) {
+  if (!start && !end) return '';
+  if (start && end) return fmtTime(start) + ' – ' + fmtTime(end);
+  return fmtTime(start || end);
 }
 function changeWeek(d){ weekOffset+=d; renderSchedule(); }
 
@@ -711,9 +770,11 @@ async function renderSchedule() {
     const col=document.createElement('div'); col.className='day-col '+dk;
     const evHtml=dayEvs.length===0?'<div class="empty-state">nothing yet...</div>':dayEvs.map(ev=>`
       <div class="event-card">
-        <button class="event-delete" onclick="delSchedEv('${ev.id}')">×</button>
-        ${ev.event_time?'<div class="event-time">'+fmtTime(ev.event_time)+'</div>':''}
+        <button class="event-edit" onclick="openEditModal(${JSON.stringify(ev).replace(/"/g,'&quot;')})" title="Edit">✎</button>
+        <button class="event-delete" onclick="delSchedEv('${ev.id}')" title="Delete">×</button>
+        ${fmtTimeRange(ev.event_time, ev.end_time)?'<div class="event-time">'+fmtTimeRange(ev.event_time, ev.end_time)+'</div>':''}
         <div class="event-title">${escH(ev.title)}</div>
+        ${ev.wear?'<div class="event-wear">👗 '+escH(ev.wear)+'</div>':''}
         ${ev.who?'<div class="event-meta">👥 '+escH(ev.who)+'</div>':''}
         ${ev.notes?'<div class="event-meta">📍 '+escH(ev.notes)+'</div>':''}
         ${ev.added_by?`<span class="event-added-by added-${ev.added_by.toLowerCase()}">${escH(ev.added_by)}</span>`:''}
@@ -735,15 +796,37 @@ async function renderSchedule() {
   });
 }
 
-function openSchedModal(dk,wk) {
+function openSchedModal(dk, wk) {
+  editingEvId = null;
   schedDay=dk; schedWk=wk;
   const i=DAY_KEYS.indexOf(dk), c=DAY_COLORS[dk];
-  const dn=document.getElementById('sched-modal-day');
-  dn.textContent=DAY_NAMES[i]; dn.style.color=c;
+  const titleEl = document.getElementById('sched-modal-title');
+  titleEl.innerHTML = 'Add to <span id="sched-modal-day" style="color:'+c+'">'+DAY_NAMES[i]+'</span>';
   document.getElementById('sched-save-btn').style.background=c;
-  ['sf-title','sf-who','sf-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('sched-save-btn').textContent='Add Event';
+  ['sf-title','sf-who','sf-notes','sf-wear'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('sf-time').value='';
+  document.getElementById('sf-end-time').value='';
   selectWho('Almi');
+  document.getElementById('sched-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('sf-title').focus(),100);
+}
+
+function openEditModal(ev) {
+  editingEvId = ev.id;
+  schedDay = ev.day; schedWk = ev.week_start;
+  const dk = ev.day, i = DAY_KEYS.indexOf(dk), c = DAY_COLORS[dk];
+  const titleEl = document.getElementById('sched-modal-title');
+  titleEl.innerHTML = 'Edit <span style="color:'+c+'">'+DAY_NAMES[i]+'</span> event';
+  const btn = document.getElementById('sched-save-btn');
+  btn.style.background = c; btn.textContent = 'Save Changes';
+  document.getElementById('sf-title').value = ev.title || '';
+  document.getElementById('sf-time').value = ev.event_time || '';
+  document.getElementById('sf-end-time').value = ev.end_time || '';
+  document.getElementById('sf-wear').value = ev.wear || '';
+  document.getElementById('sf-who').value = ev.who || '';
+  document.getElementById('sf-notes').value = ev.notes || '';
+  selectWho(ev.added_by || 'Almi');
   document.getElementById('sched-modal').classList.add('open');
   setTimeout(()=>document.getElementById('sf-title').focus(),100);
 }
@@ -753,22 +836,29 @@ async function saveSchedEvent() {
   if(!title){ document.getElementById('sf-title').style.borderColor='#e05a5a'; return; }
   document.getElementById('sf-title').style.borderColor='';
   const btn=document.getElementById('sched-save-btn');
+  const origText = btn.textContent;
   btn.textContent='Saving...'; btn.disabled=true;
+  const payload = {
+    title,
+    event_time: document.getElementById('sf-time').value || null,
+    end_time: document.getElementById('sf-end-time').value || null,
+    wear: document.getElementById('sf-wear').value.trim() || null,
+    who: document.getElementById('sf-who').value.trim() || null,
+    notes: document.getElementById('sf-notes').value.trim() || null,
+    added_by: schedAddedBy,
+  };
   try {
-    await sb('schedule_events','POST',{
-      week_start: schedWk,
-      day: schedDay,
-      title,
-      event_time: document.getElementById('sf-time').value || null,
-      who: document.getElementById('sf-who').value.trim() || null,
-      notes: document.getElementById('sf-notes').value.trim() || null,
-      added_by: schedAddedBy,
-    });
+    if (editingEvId) {
+      await sb('schedule_events','PATCH', payload, `?id=eq.${editingEvId}`);
+      toast('Event updated!');
+    } else {
+      await sb('schedule_events','POST', { week_start: schedWk, day: schedDay, ...payload });
+      toast('Event added!');
+    }
     closeModal('sched-modal');
-    toast('Event added!');
     renderSchedule();
   } catch(e) { toast('Failed to save event', false); }
-  finally { btn.textContent='Add Event'; btn.disabled=false; }
+  finally { btn.textContent=origText; btn.disabled=false; }
 }
 
 async function delSchedEv(id) {
@@ -782,13 +872,18 @@ async function delSchedEv(id) {
 document.getElementById('sf-title').addEventListener('keydown',e=>{ if(e.key==='Enter') saveSchedEvent(); });
 
 // ── TODO ──
-let todoFilter='all';
+let todoFilter='all', todoVibe='home';
+
+function selectVibe(v) {
+  todoVibe = v;
+  document.querySelectorAll('.vibe-btn').forEach(b => b.classList.toggle('active', b.dataset.vibe === v));
+}
 
 async function addTodo() {
   const inp=document.getElementById('todo-input'), text=inp.value.trim(); if(!text) return;
   inp.value='';
   try {
-    await sb('todos','POST',{ text, done: false });
+    await sb('todos','POST',{ text, done: false, vibe: todoVibe });
     toast('Added to list!');
     renderTodos();
   } catch(e) { toast('Failed to add item', false); inp.value=text; }
@@ -818,6 +913,9 @@ function setFilter(f) {
   renderTodos();
 }
 
+const VIBE_LABELS = { home: '🏠 At Home', date: '💃 Date' };
+const VIBE_CLS = { home: 'vibe-home', date: 'vibe-date' };
+
 async function renderTodos() {
   const list=document.getElementById('todo-list');
   list.innerHTML='<div class="todo-empty">Loading...</div>';
@@ -826,20 +924,32 @@ async function renderTodos() {
     all = await sb('todos','GET',null,'?order=created_at.desc');
   } catch(e) { toast('Failed to load todos', false); all=[]; }
 
-  const filtered = todoFilter==='all' ? all : all.filter(t=>todoFilter==='done'?t.done:!t.done);
+  let filtered = all;
+  if (todoFilter === 'done') filtered = all.filter(t=>t.done);
+  else if (todoFilter === 'active') filtered = all.filter(t=>!t.done);
+  else if (todoFilter === 'home') filtered = all.filter(t=>t.vibe==='home'||!t.vibe);
+  else if (todoFilter === 'date') filtered = all.filter(t=>t.vibe==='date');
+
   const done = all.filter(t=>t.done).length;
   document.getElementById('todo-stats').textContent=done+'/'+all.length+' done';
 
   if(filtered.length===0){
-    list.innerHTML='<div class="todo-empty">'+(todoFilter==='done'?'nothing done yet...':todoFilter==='active'?'all clear! 🎉':'the list is empty...')+'</div>'; return;
+    list.innerHTML='<div class="todo-empty">'+(todoFilter==='done'?'nothing done yet...':todoFilter==='active'?'all clear! 🎉':todoFilter==='home'?'no at home vibes yet...':todoFilter==='date'?'no date plans yet...':'the list is empty...')+'</div>'; return;
   }
-  list.innerHTML=filtered.map(t=>`
+  list.innerHTML=filtered.map(t=>{
+    const vibe = t.vibe || 'home';
+    const vibeTag = `<span class="todo-vibe-tag ${VIBE_CLS[vibe]}">${VIBE_LABELS[vibe]}</span>`;
+    return `
     <div class="todo-item ${t.done?'done':''}">
       <button class="todo-check" onclick="toggleTodo('${t.id}',${t.done})"><div class="todo-check-inner"></div></button>
-      <span class="todo-text">${escH(t.text)}</span>
+      <div style="flex:1;min-width:0">
+        <div class="todo-text">${escH(t.text)}</div>
+        <div style="margin-top:0.3rem">${vibeTag}</div>
+      </div>
       <span class="todo-date">${new Date(t.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
       <button class="todo-del" onclick="deleteTodo('${t.id}')">×</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 document.getElementById('todo-input').addEventListener('keydown',e=>{ if(e.key==='Enter') addTodo(); });
