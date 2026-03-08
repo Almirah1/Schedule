@@ -729,7 +729,28 @@ document.querySelectorAll('.modal-overlay').forEach(mo => {
 
 // ── SCHEDULE ──
 const DAY_NAMES=['Friday','Saturday','Sunday'], DAY_KEYS=['fri','sat','sun'];
-const DAY_COLORS={fri:'#e8c547',sat:'#f0855a',sun:'#6ab4f5'};
+
+// Offset 0 = this week = date weekend. Even offsets = date, odd offsets = home.
+// We normalise so that negative offsets also alternate correctly.
+function getWeekVibe(offset) {
+  // Use a fixed reference: weekOffset 0 is "date". Mod 2 with correct handling for negatives.
+  return ((offset % 2) + 2) % 2 === 0 ? 'date' : 'home';
+}
+
+// Date weekend: ocean & ice — deep teal, sky blue, ice blue
+const DATE_COLORS = { fri:'#1a8a9a', sat:'#4db8d4', sun:'#a8dce8' };
+const DATE_VIBE_LABEL = '💃 Date Weekend';
+const DATE_VIBE_COLOR = '#4db8d4';
+
+// Home weekend: forest & moss — deep forest green, moss, warm ochre
+const HOME_COLORS = { fri:'#4a7c59', sat:'#7aab6e', sun:'#a8d5a2' };
+const HOME_VIBE_LABEL = '🏠 Home Weekend';
+const HOME_VIBE_COLOR = '#7aab6e';
+
+function getVibeColors(offset) {
+  return getWeekVibe(offset) === 'date' ? DATE_COLORS : HOME_COLORS;
+}
+
 let weekOffset=0, schedDay=null, schedWk=null, schedAddedBy='Almi', editingEvId=null;
 
 function selectWho(name) {
@@ -765,6 +786,37 @@ async function renderSchedule() {
   document.getElementById('week-label').textContent = lbl;
   const mLbl = document.getElementById('mobile-week-label');
   if (mLbl) mLbl.textContent = lbl;
+
+  const vibe = getWeekVibe(weekOffset);
+  const COLORS = getVibeColors(weekOffset);
+  const vibeLabel = vibe === 'date' ? DATE_VIBE_LABEL : HOME_VIBE_LABEL;
+  const vibeAccent = vibe === 'date' ? DATE_VIBE_COLOR : HOME_VIBE_COLOR;
+
+  // Update mobile top bar vibe pill
+  let vibePill = document.getElementById('vibe-pill');
+  if (!vibePill) {
+    vibePill = document.createElement('span');
+    vibePill.id = 'vibe-pill';
+    vibePill.style.cssText = `font-size:0.58rem;padding:0.18rem 0.6rem;border-radius:20px;font-family:'DM Mono',monospace;font-weight:500;letter-spacing:0.04em;flex-shrink:0;`;
+    const mobileInner = document.querySelector('.mobile-top-bar-inner');
+    if (mobileInner) mobileInner.insertBefore(vibePill, mobileInner.querySelector('.mobile-week-nav'));
+  }
+  vibePill.textContent = vibeLabel;
+  vibePill.style.background = `color-mix(in srgb, ${vibeAccent} 15%, var(--surface2))`;
+  vibePill.style.color = vibeAccent;
+  vibePill.style.border = `1px solid color-mix(in srgb, ${vibeAccent} 30%, transparent)`;
+
+  // Inject per-week CSS custom properties so all day-colour rules pick them up
+  let styleTag = document.getElementById('week-vibe-style');
+  if (!styleTag) { styleTag = document.createElement('style'); styleTag.id='week-vibe-style'; document.head.appendChild(styleTag); }
+  styleTag.textContent = `
+    :root {
+      --fri: ${COLORS.fri};
+      --sat: ${COLORS.sat};
+      --sun: ${COLORS.sun};
+    }
+  `;
+
   const wk=weekStr(weekOffset), dates=getWeekDates(weekOffset);
   const grid=document.getElementById('sched-grid');
   grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:2rem;font-size:0.8rem">Loading...</div>`;
@@ -775,6 +827,13 @@ async function renderSchedule() {
   } catch(e) { toast('Failed to load schedule','error'); evs=[]; }
 
   grid.innerHTML='';
+
+  // Vibe banner below week nav on desktop / top of page on mobile
+  const banner = document.createElement('div');
+  banner.style.cssText = `grid-column:1/-1;display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:${vibeAccent};font-family:'DM Mono',monospace;`;
+  banner.innerHTML = `<span style="font-size:1rem">${vibe==='date'?'💃':'🏠'}</span> ${vibe==='date'?'Date Weekend':'Home Weekend'}`;
+  grid.appendChild(banner);
+
   DAY_KEYS.forEach((dk,i)=>{
     const dayEvs = evs.filter(e=>e.day===dk);
     const col=document.createElement('div'); col.className='day-col '+dk;
@@ -809,7 +868,7 @@ async function renderSchedule() {
 function openSchedModal(dk, wk) {
   editingEvId = null;
   schedDay=dk; schedWk=wk;
-  const i=DAY_KEYS.indexOf(dk), c=DAY_COLORS[dk];
+  const i=DAY_KEYS.indexOf(dk), c=getVibeColors(weekOffset)[dk];
   const titleEl = document.getElementById('sched-modal-title');
   titleEl.innerHTML = 'Add to <span id="sched-modal-day" style="color:'+c+'">'+DAY_NAMES[i]+'</span>';
   document.getElementById('sched-save-btn').style.background=c;
@@ -825,7 +884,7 @@ function openSchedModal(dk, wk) {
 function openEditModal(ev) {
   editingEvId = ev.id;
   schedDay = ev.day; schedWk = ev.week_start;
-  const dk = ev.day, i = DAY_KEYS.indexOf(dk), c = DAY_COLORS[dk];
+  const dk = ev.day, i = DAY_KEYS.indexOf(dk), c = getVibeColors(weekOffset)[dk];
   const titleEl = document.getElementById('sched-modal-title');
   titleEl.innerHTML = 'Edit <span style="color:'+c+'">'+DAY_NAMES[i]+'</span> event';
   const btn = document.getElementById('sched-save-btn');
