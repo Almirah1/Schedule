@@ -305,13 +305,10 @@
   }
   .vibe-home { background: color-mix(in srgb, #a8d8a8 12%, transparent); color: #a8d8a8; }
   .vibe-date { background: color-mix(in srgb, var(--sat) 12%, transparent); color: var(--sat); }
-  /* Added-by badge on todo (reuses schedule colours) */
-  .todo-added-by {
-    font-size: 0.58rem; padding: 0.12rem 0.5rem; border-radius: 20px; font-weight: 500;
-    white-space: nowrap; flex-shrink: 0; letter-spacing: 0.05em; text-transform: uppercase;
+  /* Added-by meta text on todo */
+  .todo-added-meta {
+    font-size: 0.6rem; color: var(--muted); font-style: italic; letter-spacing: 0.02em;
   }
-  .todo-added-by.added-almi { background: color-mix(in srgb, var(--fri) 15%, transparent); color: var(--fri); }
-  .todo-added-by.added-alvi { background: color-mix(in srgb, var(--sun) 15%, transparent); color: var(--sun); }
 
   /* Filter divider */
   .filter-divider { width: 1px; background: var(--border); margin: 0.2rem 0.15rem; align-self: stretch; }
@@ -1064,15 +1061,18 @@ async function renderTodos() {
   list.innerHTML=filtered.map(t=>{
     const vibe = t.vibe || 'home';
     const vibeTag = `<span class="todo-vibe-tag ${VIBE_CLS[vibe]}">${VIBE_LABELS[vibe]}</span>`;
-    const addedByTag = t.added_by
-      ? `<span class="todo-added-by added-${t.added_by.toLowerCase()}">${escH(t.added_by)}</span>`
-      : '';
+    const addedByText = t.added_by ? (() => {
+      const d = new Date(t.created_at);
+      const time = d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}).toLowerCase();
+      const day = d.toLocaleDateString('en-US',{weekday:'long'});
+      return `<span class="todo-added-meta">added by ${escH(t.added_by.toLowerCase())} at ${time} on ${day}</span>`;
+    })() : '';
     return `
     <div class="todo-item ${t.done?'done':''}">
       <button class="todo-check" onclick="toggleTodo('${t.id}',${t.done})"><div class="todo-check-inner"></div></button>
       <div style="flex:1;min-width:0">
         <div class="todo-text">${escH(t.text)}</div>
-        <div style="margin-top:0.3rem;display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center">${vibeTag}${addedByTag}</div>
+        <div style="margin-top:0.3rem;display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center">${vibeTag}${addedByText}</div>
       </div>
       <span class="todo-date">${new Date(t.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
       <button class="todo-del" onclick="deleteTodo('${t.id}')">×</button>
