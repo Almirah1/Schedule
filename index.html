@@ -124,7 +124,7 @@
     border-top: 1px solid var(--border);
   }
   .bottom-nav-inner {
-    display: grid; grid-template-columns: repeat(4, 1fr);
+    display: grid; grid-template-columns: repeat(3, 1fr);
     height: 60px;
   }
   /* This block fills the gap between nav and physical screen edge */
@@ -143,26 +143,50 @@
   .bottom-tab.active[data-page="schedule"] { color: var(--fri); }
   .bottom-tab.active[data-page="todo"]     { color: var(--todo); }
   .bottom-tab.active[data-page="boyle"]    { color: var(--boyle); }
-  .bottom-tab.active[data-page="settings"] { color: var(--muted); filter: brightness(1.8); }
 
-  /* ── SETTINGS ── */
-  .settings-wrap { max-width: 480px; padding-bottom: 2rem; }
-  .settings-title {
-    font-family: 'Playfair Display', serif; font-size: clamp(1.4rem,5vw,2.4rem);
-    font-style: italic; margin-bottom: 2rem;
-    padding-bottom: 0.9rem; border-bottom: 1px solid var(--border);
+  /* ── USER AVATAR & DROPDOWN ── */
+  .user-dropdown-wrap { position: relative; flex-shrink: 0; }
+  .user-avatar {
+    height: 34px; border-radius: 20px; border: none; cursor: pointer;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem; font-weight: 500;
+    display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+    padding: 0 0.75rem;
+    transition: opacity 0.15s; flex-shrink: 0;
   }
-  .settings-section {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 1.25rem 1.25rem 1.5rem;
-    margin-bottom: 1rem;
+  .user-avatar:active { opacity: 0.75; }
+  .user-avatar.avatar-almi { background: #3d6b8f; color: #c8e4f5; }
+  .user-avatar.avatar-alvi { background: #6b3d8a; color: #e8c8f5; }
+  .user-dropdown {
+    display: none; position: absolute; top: calc(100% + 8px); right: 0;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden; min-width: 130px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5); z-index: 300;
+    animation: slideIn 0.15s ease;
   }
-  .settings-section-label {
-    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em;
-    color: var(--muted); margin-bottom: 0.4rem;
+  .user-dropdown.open { display: block; }
+  .user-option {
+    display: flex; align-items: center; gap: 0.65rem;
+    width: 100%; padding: 0.7rem 1rem; background: none; border: none;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.78rem;
+    cursor: pointer; text-align: left; transition: background 0.12s;
   }
-  .settings-section-desc {
-    font-size: 0.8rem; color: var(--text); line-height: 1.5; opacity: 0.75;
+  .user-option:hover { background: var(--surface); }
+  .user-option.active { color: var(--text); }
+  .user-option.active::after { content: '✓'; margin-left: auto; color: var(--todo); font-size: 0.75rem; }
+  .user-avatar-sm {
+    width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; font-weight: 600;
+  }
+  .avatar-almi { background: #3d6b8f; color: #c8e4f5; }
+  .avatar-alvi { background: #6b3d8a; color: #e8c8f5; }
+
+  /* Avatar in todo timestamp */
+  .todo-avatar-inline {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%;
+    font-size: 0.5rem; font-weight: 600; vertical-align: middle;
+    margin-right: 0.3rem; flex-shrink: 0;
   }
 
   /* ── PAGES ── */
@@ -521,7 +545,17 @@
     <button class="nav-tab active" data-page="schedule" onclick="showPage('schedule')"><span class="tab-icon">📅</span> Schedule</button>
     <button class="nav-tab" data-page="todo" onclick="showPage('todo')"><span class="tab-icon">✅</span> To-Do List</button>
     <button class="nav-tab" data-page="boyle" onclick="showPage('boyle')"><span class="tab-icon">🍽️</span> Boyle Reviews</button>
-    <button class="nav-tab" data-page="settings" onclick="showPage('settings')"><span class="tab-icon">⚙️</span> Settings</button>
+  </div>
+  <div class="user-dropdown-wrap" id="user-dropdown-wrap-desktop">
+    <button class="user-avatar" id="user-avatar-desktop" onclick="toggleUserDropdown('desktop')"></button>
+    <div class="user-dropdown" id="user-dropdown-desktop">
+      <button class="user-option" data-who="Almi" onclick="setCurrentUser('Almi')">
+        <span class="user-avatar-sm avatar-almi">A</span> Almi
+      </button>
+      <button class="user-option" data-who="Alvi" onclick="setCurrentUser('Alvi')">
+        <span class="user-avatar-sm avatar-alvi">A</span> Alvi
+      </button>
+    </div>
   </div>
 </nav>
 
@@ -529,6 +563,17 @@
 <div class="mobile-top-bar" id="mobile-top-bar">
   <div class="mobile-top-row1">
     <span class="app-name">The Weekend</span>
+    <div class="user-dropdown-wrap" id="user-dropdown-wrap-mobile" style="margin-left:auto">
+      <button class="user-avatar" id="user-avatar-mobile" onclick="toggleUserDropdown('mobile')"></button>
+      <div class="user-dropdown" id="user-dropdown-mobile">
+        <button class="user-option" data-who="Almi" onclick="setCurrentUser('Almi')">
+          <span class="user-avatar-sm avatar-almi">A</span> Almi
+        </button>
+        <button class="user-option" data-who="Alvi" onclick="setCurrentUser('Alvi')">
+          <span class="user-avatar-sm avatar-alvi">A</span> Alvi
+        </button>
+      </div>
+    </div>
   </div>
   <div class="mobile-top-row2">
     <span id="vibe-pill"></span>
@@ -551,9 +596,6 @@
     </button>
     <button class="bottom-tab" data-page="boyle" onclick="showPage('boyle')">
       <span class="b-icon">🍽️</span>Boyle
-    </button>
-    <button class="bottom-tab" data-page="settings" onclick="showPage('settings')">
-      <span class="b-icon">⚙️</span>Settings
     </button>
   </div>
   <div class="bottom-nav-fill"></div>
@@ -615,21 +657,6 @@
       <button class="boyle-add-btn" onclick="openBoyleModal()">+ Log Review</button>
     </div>
     <div class="reviews-grid" id="reviews-grid"></div>
-  </div>
-</div>
-
-<!-- SETTINGS -->
-<div class="page" id="page-settings">
-  <div class="settings-wrap">
-    <div class="settings-title">Settings</div>
-
-    <div class="settings-section">
-      <div class="settings-section-label">Who are you?</div>
-      <div class="who-picker" style="margin-top:1rem">
-        <button type="button" class="who-btn" id="settings-almi" data-who="Almi" onclick="setCurrentUser('Almi')">Almi</button>
-        <button type="button" class="who-btn" id="settings-alvi" data-who="Alvi" onclick="setCurrentUser('Alvi')">Alvi</button>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -973,22 +1000,54 @@ async function delSchedEv(id) {
 
 document.getElementById('sf-title').addEventListener('keydown',e=>{ if(e.key==='Enter') saveSchedEvent(); });
 
-// ── SETTINGS ──
+// ── USER / SETTINGS ──
 let currentUser = localStorage.getItem('weekend_user') || 'Almi';
+
+const USER_COLORS = {
+  Almi: { bg: '#3d6b8f', text: '#c8e4f5' },
+  Alvi: { bg: '#6b3d8a', text: '#e8c8f5' },
+};
 
 function setCurrentUser(name) {
   currentUser = name;
   localStorage.setItem('weekend_user', name);
-  document.querySelectorAll('#settings-almi, #settings-alvi').forEach(b =>
-    b.classList.toggle('active', b.dataset.who === name)
-  );
+  updateAvatars();
+  // close all dropdowns
+  document.querySelectorAll('.user-dropdown').forEach(d => d.classList.remove('open'));
   toast('Logged in as ' + name + ' ✓');
 }
 
+function updateAvatars() {
+  const c = USER_COLORS[currentUser] || USER_COLORS.Almi;
+  const initial = currentUser[0].toUpperCase();
+  // Update all avatar buttons
+  document.querySelectorAll('.user-avatar').forEach(btn => {
+    btn.innerHTML = `<span style="width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:0.65rem;flex-shrink:0">${initial}</span>${currentUser}`;
+    btn.style.background = c.bg;
+    btn.style.color = c.text;
+  });
+  // Update active state in dropdowns
+  document.querySelectorAll('.user-option').forEach(opt => {
+    opt.classList.toggle('active', opt.dataset.who === currentUser);
+  });
+}
+
+function toggleUserDropdown(which) {
+  const dd = document.getElementById('user-dropdown-' + which);
+  const isOpen = dd.classList.contains('open');
+  document.querySelectorAll('.user-dropdown').forEach(d => d.classList.remove('open'));
+  if (!isOpen) dd.classList.add('open');
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', e => {
+  if (!e.target.closest('.user-dropdown-wrap')) {
+    document.querySelectorAll('.user-dropdown').forEach(d => d.classList.remove('open'));
+  }
+});
+
 function initSettings() {
-  document.querySelectorAll('#settings-almi, #settings-alvi').forEach(b =>
-    b.classList.toggle('active', b.dataset.who === currentUser)
-  );
+  updateAvatars();
 }
 
 // ── TODO ──
@@ -1067,7 +1126,9 @@ async function renderTodos() {
       const time = d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}).toLowerCase();
       const day = d.toLocaleDateString('en-US',{weekday:'short'}).toUpperCase();
       const date = d.toLocaleDateString('en-US',{month:'short',day:'numeric'}).toUpperCase();
-      return `<span class="todo-added-meta">${escH(t.added_by.toUpperCase())} · ${day} ${date} · ${time}</span>`;
+      const c = USER_COLORS[t.added_by] || USER_COLORS.Almi;
+      const circle = `<span class="todo-avatar-inline" style="background:${c.bg};color:${c.text}">${t.added_by[0].toUpperCase()}</span>`;
+      return `<span class="todo-added-meta">${circle}${escH(t.added_by.toUpperCase())} · ${day} ${date} · ${time}</span>`;
     })() : '';
     return `
     <div class="todo-item ${t.done?'done':''}">
