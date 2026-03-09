@@ -124,7 +124,7 @@
     border-top: 1px solid var(--border);
   }
   .bottom-nav-inner {
-    display: grid; grid-template-columns: repeat(3, 1fr);
+    display: grid; grid-template-columns: repeat(4, 1fr);
     height: 60px;
   }
   /* This block fills the gap between nav and physical screen edge */
@@ -143,6 +143,27 @@
   .bottom-tab.active[data-page="schedule"] { color: var(--fri); }
   .bottom-tab.active[data-page="todo"]     { color: var(--todo); }
   .bottom-tab.active[data-page="boyle"]    { color: var(--boyle); }
+  .bottom-tab.active[data-page="settings"] { color: var(--muted); filter: brightness(1.8); }
+
+  /* ── SETTINGS ── */
+  .settings-wrap { max-width: 480px; padding-bottom: 2rem; }
+  .settings-title {
+    font-family: 'Playfair Display', serif; font-size: clamp(1.4rem,5vw,2.4rem);
+    font-style: italic; margin-bottom: 2rem;
+    padding-bottom: 0.9rem; border-bottom: 1px solid var(--border);
+  }
+  .settings-section {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.25rem 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .settings-section-label {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--muted); margin-bottom: 0.4rem;
+  }
+  .settings-section-desc {
+    font-size: 0.8rem; color: var(--text); line-height: 1.5; opacity: 0.75;
+  }
 
   /* ── PAGES ── */
   .page { display: none; padding: 1rem; width: 100%; }
@@ -284,6 +305,13 @@
   }
   .vibe-home { background: color-mix(in srgb, #a8d8a8 12%, transparent); color: #a8d8a8; }
   .vibe-date { background: color-mix(in srgb, var(--sat) 12%, transparent); color: var(--sat); }
+  /* Added-by badge on todo (reuses schedule colours) */
+  .todo-added-by {
+    font-size: 0.58rem; padding: 0.12rem 0.5rem; border-radius: 20px; font-weight: 500;
+    white-space: nowrap; flex-shrink: 0; letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  .todo-added-by.added-almi { background: color-mix(in srgb, var(--fri) 15%, transparent); color: var(--fri); }
+  .todo-added-by.added-alvi { background: color-mix(in srgb, var(--sun) 15%, transparent); color: var(--sun); }
 
   /* Filter divider */
   .filter-divider { width: 1px; background: var(--border); margin: 0.2rem 0.15rem; align-self: stretch; }
@@ -495,6 +523,7 @@
     <button class="nav-tab active" data-page="schedule" onclick="showPage('schedule')"><span class="tab-icon">📅</span> Schedule</button>
     <button class="nav-tab" data-page="todo" onclick="showPage('todo')"><span class="tab-icon">✅</span> To-Do List</button>
     <button class="nav-tab" data-page="boyle" onclick="showPage('boyle')"><span class="tab-icon">🍽️</span> Boyle Reviews</button>
+    <button class="nav-tab" data-page="settings" onclick="showPage('settings')"><span class="tab-icon">⚙️</span> Settings</button>
   </div>
 </nav>
 
@@ -524,6 +553,9 @@
     </button>
     <button class="bottom-tab" data-page="boyle" onclick="showPage('boyle')">
       <span class="b-icon">🍽️</span>Boyle
+    </button>
+    <button class="bottom-tab" data-page="settings" onclick="showPage('settings')">
+      <span class="b-icon">⚙️</span>Settings
     </button>
   </div>
   <div class="bottom-nav-fill"></div>
@@ -566,6 +598,9 @@
     <div class="filter-divider"></div>
     <button class="filter-btn" data-filter="home" onclick="setFilter('home')">🏠</button>
     <button class="filter-btn" data-filter="date" onclick="setFilter('date')">💃</button>
+    <div class="filter-divider"></div>
+    <button class="filter-btn" data-filter="almi" onclick="setFilter('almi')">Almi</button>
+    <button class="filter-btn" data-filter="alvi" onclick="setFilter('alvi')">Alvi</button>
   </div>
   <div class="todo-list" id="todo-list"></div>
 </div>
@@ -582,6 +617,21 @@
       <button class="boyle-add-btn" onclick="openBoyleModal()">+ Log Review</button>
     </div>
     <div class="reviews-grid" id="reviews-grid"></div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div class="page" id="page-settings">
+  <div class="settings-wrap">
+    <div class="settings-title">Settings</div>
+
+    <div class="settings-section">
+      <div class="settings-section-label">Who are you?</div>
+      <div class="who-picker" style="margin-top:1rem">
+        <button type="button" class="who-btn" id="settings-almi" data-who="Almi" onclick="setCurrentUser('Almi')">Almi</button>
+        <button type="button" class="who-btn" id="settings-alvi" data-who="Alvi" onclick="setCurrentUser('Alvi')">Alvi</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -607,13 +657,6 @@
     <div class="form-group">
       <label>What to wear 👗</label>
       <input type="text" id="sf-wear" placeholder="smart casual, all black, cosy..." />
-    </div>
-    <div class="form-group">
-      <label>Added by</label>
-      <div class="who-picker">
-        <button type="button" class="who-btn active" data-who="Almi" onclick="selectWho('Almi')">Almi</button>
-        <button type="button" class="who-btn" data-who="Alvi" onclick="selectWho('Alvi')">Alvi</button>
-      </div>
     </div>
     <div class="form-group">
       <label>Who's coming</label>
@@ -754,12 +797,7 @@ function getVibeColors(offset) {
   return getWeekVibe(offset) === 'date' ? DATE_COLORS : HOME_COLORS;
 }
 
-let weekOffset=0, schedDay=null, schedWk=null, schedAddedBy='Almi', editingEvId=null;
-
-function selectWho(name) {
-  schedAddedBy = name;
-  document.querySelectorAll('.who-btn').forEach(b => b.classList.toggle('active', b.dataset.who === name));
-}
+let weekOffset=0, schedDay=null, schedWk=null, editingEvId=null;
 
 function getWeekDates(o) {
   const now=new Date(), day=now.getDay(), dToFri=(5-day+7)%7;
@@ -874,7 +912,6 @@ function openSchedModal(dk, wk) {
   ['sf-title','sf-who','sf-notes','sf-wear'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('sf-time').value='';
   document.getElementById('sf-end-time').value='';
-  selectWho('Almi');
   document.getElementById('sched-modal').classList.add('open');
   setTimeout(()=>document.getElementById('sf-title').focus(),100);
 }
@@ -912,7 +949,7 @@ async function saveSchedEvent() {
     wear: document.getElementById('sf-wear').value.trim() || null,
     who: document.getElementById('sf-who').value.trim() || null,
     notes: document.getElementById('sf-notes').value.trim() || null,
-    added_by: schedAddedBy,
+    added_by: editingEvId ? undefined : currentUser,
   };
   try {
     if (editingEvId) {
@@ -938,6 +975,24 @@ async function delSchedEv(id) {
 
 document.getElementById('sf-title').addEventListener('keydown',e=>{ if(e.key==='Enter') saveSchedEvent(); });
 
+// ── SETTINGS ──
+let currentUser = localStorage.getItem('weekend_user') || 'Almi';
+
+function setCurrentUser(name) {
+  currentUser = name;
+  localStorage.setItem('weekend_user', name);
+  document.querySelectorAll('#settings-almi, #settings-alvi').forEach(b =>
+    b.classList.toggle('active', b.dataset.who === name)
+  );
+  toast('Logged in as ' + name + ' ✓');
+}
+
+function initSettings() {
+  document.querySelectorAll('#settings-almi, #settings-alvi').forEach(b =>
+    b.classList.toggle('active', b.dataset.who === currentUser)
+  );
+}
+
 // ── TODO ──
 let todoFilter='all', todoVibe='home';
 
@@ -950,7 +1005,7 @@ async function addTodo() {
   const inp=document.getElementById('todo-input'), text=inp.value.trim(); if(!text) return;
   inp.value='';
   try {
-    await sb('todos','POST',{ text, done: false, vibe: todoVibe });
+    await sb('todos','POST',{ text, done: false, vibe: todoVibe, added_by: currentUser });
     toast('Added to list!');
     renderTodos();
   } catch(e) { toast('Failed to add item', false); inp.value=text; }
@@ -996,22 +1051,28 @@ async function renderTodos() {
   else if (todoFilter === 'active') filtered = all.filter(t=>!t.done);
   else if (todoFilter === 'home') filtered = all.filter(t=>t.vibe==='home'||!t.vibe);
   else if (todoFilter === 'date') filtered = all.filter(t=>t.vibe==='date');
+  else if (todoFilter === 'almi') filtered = all.filter(t=>t.added_by==='Almi');
+  else if (todoFilter === 'alvi') filtered = all.filter(t=>t.added_by==='Alvi');
 
   const done = all.filter(t=>t.done).length;
   document.getElementById('todo-stats').textContent=done+'/'+all.length+' done';
 
   if(filtered.length===0){
-    list.innerHTML='<div class="todo-empty">'+(todoFilter==='done'?'nothing done yet...':todoFilter==='active'?'all clear! 🎉':todoFilter==='home'?'no at home vibes yet...':todoFilter==='date'?'no date plans yet...':'the list is empty...')+'</div>'; return;
+    const msgs = { done:'nothing done yet...', active:'all clear! 🎉', home:'no at home vibes yet...', date:'no date plans yet...', almi:'nothing from Almi yet...', alvi:'nothing from Alvi yet...' };
+    list.innerHTML=`<div class="todo-empty">${msgs[todoFilter]||'the list is empty...'}</div>`; return;
   }
   list.innerHTML=filtered.map(t=>{
     const vibe = t.vibe || 'home';
     const vibeTag = `<span class="todo-vibe-tag ${VIBE_CLS[vibe]}">${VIBE_LABELS[vibe]}</span>`;
+    const addedByTag = t.added_by
+      ? `<span class="todo-added-by added-${t.added_by.toLowerCase()}">${escH(t.added_by)}</span>`
+      : '';
     return `
     <div class="todo-item ${t.done?'done':''}">
       <button class="todo-check" onclick="toggleTodo('${t.id}',${t.done})"><div class="todo-check-inner"></div></button>
       <div style="flex:1;min-width:0">
         <div class="todo-text">${escH(t.text)}</div>
-        <div style="margin-top:0.3rem">${vibeTag}</div>
+        <div style="margin-top:0.3rem;display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center">${vibeTag}${addedByTag}</div>
       </div>
       <span class="todo-date">${new Date(t.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
       <button class="todo-del" onclick="deleteTodo('${t.id}')">×</button>
@@ -1199,6 +1260,7 @@ showPage('schedule');
 renderSchedule();
 renderTodos();
 renderReviews();
+initSettings();
 </script>
 </body>
 </html>
