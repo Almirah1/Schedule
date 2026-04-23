@@ -789,10 +789,10 @@
     <div class="settings-section">
       <div class="settings-section-label">Notifications</div>
       <div class="settings-row" id="notif-status-row">
-        <div class="settings-row-label" id="notif-status-label">Loading...</div>
+        <div class="settings-row-label" id="notif-status-label">Off</div>
         <button class="settings-toggle" id="notif-toggle-btn" onclick="toggleNotifications()"></button>
       </div>
-      <div class="settings-row-sub" id="notif-status-sub"></div>
+      <div class="settings-row-sub" id="notif-status-sub">Tap to enable notifications for new events and list items.</div>
     </div>
   </div>
 </div>
@@ -1576,13 +1576,13 @@ async function savePushSubscription(sub) {
     // Upsert — replace old subscription for this user
     await fetch(`${SUPABASE_URL}/rest/v1/schedule_app_push_subscriptions?user_name=eq.${currentUser}`, {
       method: 'DELETE',
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` },
     });
     await fetch(`${SUPABASE_URL}/rest/v1/schedule_app_push_subscriptions`, {
       method: 'POST',
       headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ user_name: currentUser, subscription: subJson }),
@@ -1664,29 +1664,43 @@ async function toggleNotifications() {
   const perm = Notification.permission;
   if (perm === 'denied') { toast('Notifications blocked in settings', false); return; }
 
-  const subscribed = await isSubscribed();
-  if (subscribed) {
-    // Unsubscribe
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    if (sub) await sub.unsubscribe();
-    // Remove from Supabase
-    await fetch(`${SUPABASE_URL}/rest/v1/schedule_app_push_subscriptions?user_name=eq.${currentUser}`, {
-      method: 'DELETE',
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-    });
-    toast('Notifications off');
-  } else {
-    // Subscribe
-    const sub = await getOrCreatePushSubscription();
-    if (sub) {
-      await savePushSubscription(sub);
-      toast('Notifications on ✓');
+  const btn = document.getElementById('notif-toggle-btn');
+  if (btn) { btn.style.opacity = '0.5'; btn.style.pointerEvents = 'none'; }
+
+  try {
+    const subscribed = await isSubscribed();
+    if (subscribed) {
+      // Turn off — unsubscribe from browser and delete from Supabase
+      try {
+        const reg = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+        ]);
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) await sub.unsubscribe();
+      } catch {}
+      await fetch(`${SUPABASE_URL}/rest/v1/schedule_app_push_subscriptions?user_name=eq.${currentUser}`, {
+        method: 'DELETE',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` },
+      });
+      toast('Notifications off');
     } else {
-      toast('Could not enable notifications', false);
+      // Turn on — subscribe and save
+      const sub = await getOrCreatePushSubscription();
+      if (sub) {
+        await savePushSubscription(sub);
+        toast('Notifications on ✓');
+      } else {
+        toast('Could not enable — open app from Home Screen', false);
+      }
     }
+  } catch(e) {
+    toast('Something went wrong', false);
+    console.error('toggleNotifications error:', e);
+  } finally {
+    if (btn) { btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; }
+    setTimeout(updateNotifSettingsUI, 400);
   }
-  setTimeout(updateNotifSettingsUI, 300);
 }
 
 function dismissNotifPrompt() {
