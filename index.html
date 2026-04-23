@@ -279,12 +279,11 @@
     cursor: pointer; white-space: nowrap; min-height: 48px; flex-shrink: 0;
   }
   .todo-add-btn:active { opacity: 0.75; }
-  .todo-filters { display: flex; gap: 0.4rem; margin-bottom: 1rem; flex-wrap: wrap; }
   .filter-btn {
     padding: 0.4rem 0.9rem; background: none; border: 1px solid var(--border);
     border-radius: 20px; color: var(--muted); font-family: 'Outfit', sans-serif;
-    font-size: 0.7rem; letter-spacing: 0.04em; cursor: pointer; transition: all 0.15s; text-transform: uppercase;
-    min-height: 36px;
+    font-size: 0.7rem; cursor: pointer; transition: all 0.15s;
+    min-height: 34px; white-space: nowrap; flex-shrink: 0;
   }
   .filter-btn.active { background: var(--todo); border-color: var(--todo); color: #fff; }
   .todo-list { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -313,12 +312,28 @@
   .todo-del:active { color: #c04040; }
   .todo-empty { color: var(--muted); font-size: 0.78rem; text-align: center; padding: 3rem 1rem; font-style: italic; opacity: 0.6; }
 
-  /* Vibe picker (add row) */
-  .todo-vibe-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+  /* Vibe picker (add row) — compact, above input */
+  .todo-vibe-row { display: flex; gap: 0.4rem; margin-bottom: 0.6rem; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .todo-vibe-row::-webkit-scrollbar { display: none; }
+
+  /* Single scrollable filter row */
+  .todo-filter-scroll {
+    display: flex; gap: 0.4rem; margin-bottom: 1rem;
+    overflow-x: auto; scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+    /* fade edges */
+    mask-image: linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%);
+  }
+  .todo-filter-scroll::-webkit-scrollbar { display: none; }
+  .todo-filter-scroll .filter-btn { flex-shrink: 0; white-space: nowrap; }
+  .todo-filter-scroll .filter-divider { width: 1px; background: var(--border); margin: 0.2rem 0.1rem; align-self: stretch; flex-shrink: 0; }
+
   .vibe-btn {
-    padding: 0.42rem 1rem; background: none; border: 1px solid var(--border);
+    padding: 0.35rem 0.8rem; background: none; border: 1px solid var(--border);
     border-radius: 20px; color: var(--muted); font-family: 'Outfit', sans-serif;
-    font-size: 0.75rem; cursor: pointer; transition: all 0.15s; min-height: 36px;
+    font-size: 0.72rem; cursor: pointer; transition: all 0.15s; min-height: 32px; white-space: nowrap; flex-shrink: 0;
   }
   .vibe-btn.active[data-vibe="home"] { background: color-mix(in srgb, #a67850 12%, var(--surface2)); border-color: #a67850; color: #a67850; }
   .vibe-btn.active[data-vibe="date"] { background: color-mix(in srgb, var(--sat) 12%, var(--surface2)); border-color: var(--sat); color: var(--sat); }
@@ -339,9 +354,6 @@
     font-family: 'Outfit', sans-serif; font-size: 0.58rem; color: var(--muted);
     letter-spacing: 0.05em; text-transform: uppercase; opacity: 0.8;
   }
-
-  /* Filter divider */
-  .filter-divider { width: 1px; background: var(--border); margin: 0.2rem 0.15rem; align-self: stretch; }
 
   /* ── BOYLE ── */
   .boyle-wrap { max-width: 960px; }
@@ -708,25 +720,25 @@
     </div>
     <div class="todo-stats" id="todo-stats"></div>
   </div>
-  <div class="todo-add-row">
-    <input type="text" id="todo-input" placeholder="Add something to the list..." />
-    <button class="todo-add-btn" onclick="addTodo()">+ Add</button>
-  </div>
   <div class="todo-vibe-row">
     <button class="vibe-btn active" data-vibe="home" onclick="selectVibe('home')">🏠 At Home</button>
     <button class="vibe-btn" data-vibe="date" onclick="selectVibe('date')">💃 Date</button>
     <button class="vibe-btn" data-vibe="movie" onclick="selectVibe('movie')">🎬 Movie</button>
     <button class="vibe-btn" data-vibe="app" onclick="selectVibe('app')">💡 App</button>
   </div>
-  <div class="todo-filters">
+  <div class="todo-add-row">
+    <input type="text" id="todo-input" placeholder="Add something to the list..." />
+    <button class="todo-add-btn" onclick="addTodo()">+ Add</button>
+  </div>
+  <div class="todo-filter-scroll" id="todo-filter-row">
     <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
     <button class="filter-btn" data-filter="active" onclick="setFilter('active')">Active</button>
     <button class="filter-btn" data-filter="done" onclick="setFilter('done')">Done</button>
     <div class="filter-divider"></div>
-    <button class="filter-btn" data-filter="home" onclick="setFilter('home')">🏠</button>
-    <button class="filter-btn" data-filter="date" onclick="setFilter('date')">💃</button>
-    <button class="filter-btn" data-filter="movie" onclick="setFilter('movie')">🎬</button>
-    <button class="filter-btn" data-filter="app" onclick="setFilter('app')">💡</button>
+    <button class="filter-btn" data-filter="home" onclick="setFilter('home')">🏠 At Home</button>
+    <button class="filter-btn" data-filter="date" onclick="setFilter('date')">💃 Date</button>
+    <button class="filter-btn" data-filter="movie" onclick="setFilter('movie')">🎬 Movie</button>
+    <button class="filter-btn" data-filter="app" onclick="setFilter('app')">💡 App</button>
     <div class="filter-divider"></div>
     <button class="filter-btn" data-filter="almi" onclick="setFilter('almi')">Almi</button>
     <button class="filter-btn" data-filter="alvi" onclick="setFilter('alvi')">Alvi</button>
