@@ -7,14 +7,21 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>The Weekend</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.init({ appId: "5080f892-f938-4cd1-ad0a-b350d4b5081d" });
+  });
+</script>
 <style>
   :root {
     --fri: #c4956a;
     --sat: #c4956a;
     --sun: #c4956a;
-    --bg: #faf4ee;
-    --surface: #ffffff;
-    --surface2: #f5ede0;
+    --bg: #f5ece8;
+    --surface: #fff8f5;
+    --surface2: #f0ddd5;
     --text: #3d2010;
     --muted: #b09070;
     --border: #ead8c8;
@@ -1144,7 +1151,7 @@ async function delSchedEv(id) {
 document.getElementById('sf-title').addEventListener('keydown',e=>{ if(e.key==='Enter') saveSchedEvent(); });
 
 // ── USER / SETTINGS ──
-let currentUser = localStorage.getItem('weekend_user') || 'Almi';
+let currentUser = localStorage.getItem('schedule_app_user') || 'Almi';
 
 const USER_COLORS = {
   Almi: { bg: '#3d1f0a', text: '#c8956a' },
@@ -1153,10 +1160,15 @@ const USER_COLORS = {
 
 function setCurrentUser(name) {
   currentUser = name;
-  localStorage.setItem('weekend_user', name);
+  localStorage.setItem('schedule_app_user', name);
   updateAvatars();
   syncSettingsUser();
   document.querySelectorAll('.user-dropdown').forEach(d => d.classList.remove('open'));
+  // Tag user in OneSignal so push notifications can target them by name
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  window.OneSignalDeferred.push(async (os) => {
+    try { await os.User.addTag('schedule_app_user', name); } catch {}
+  });
   toast('Logged in as ' + name + ' ✓');
 }
 
@@ -1207,62 +1219,39 @@ function updateNotifSettingsUI() {
   const sub = document.getElementById('notif-status-sub');
   if (!btn || !label) return;
 
-  if (!('Notification' in window)) {
-    label.textContent = 'Not supported';
-    sub.textContent = 'Push notifications are not supported in this browser.';
+  isOneSignalSubscribed().then(subscribed => {
+    btn.style.display = 'block';
+    if (subscribed) {
+      label.textContent = 'On';
+      sub.textContent = "You'll be notified when the other person adds something.";
+      btn.classList.add('on');
+    } else {
+      label.textContent = 'Off';
+      sub.textContent = 'Tap to enable notifications for new events and list items.';
+      btn.classList.remove('on');
+    }
+  }).catch(() => {
+    label.textContent = 'Unavailable';
+    sub.textContent = 'Notifications are not available in this browser.';
     btn.style.display = 'none';
-    return;
-  }
-
-  const perm = Notification.permission;
-  const paused = localStorage.getItem('notif_paused') === '1';
-
-  if (perm === 'denied') {
-    label.textContent = 'Blocked';
-    sub.textContent = 'Notifications are blocked. Go to your browser settings to allow them.';
-    btn.style.display = 'none';
-    return;
-  }
-
-  btn.style.display = 'block';
-
-  if (perm === 'default') {
-    label.textContent = 'Off';
-    sub.textContent = 'Tap to enable notifications for new events and list items.';
-    btn.classList.remove('on');
-  } else if (perm === 'granted' && !paused) {
-    label.textContent = 'On';
-    sub.textContent = "You'll be notified when the other person adds something.";
-    btn.classList.add('on');
-  } else {
-    label.textContent = 'Paused';
-    sub.textContent = 'Notifications are paused. Tap to turn back on.';
-    btn.classList.remove('on');
-  }
+  });
 }
 
 async function toggleNotifications() {
-  if (!('Notification' in window)) return;
-  const perm = Notification.permission;
-  const paused = localStorage.getItem('notif_paused') === '1';
-
-  if (perm === 'default') {
-    // Not yet asked — request permission
-    const result = await Notification.requestPermission();
-    if (result === 'granted') {
-      localStorage.removeItem('notif_paused');
+  try {
+    const os = await getOneSignal();
+    const subscribed = await os.User.PushSubscription.optedIn;
+    if (subscribed) {
+      await os.User.PushSubscription.optOut();
+      toast('Notifications off');
+    } else {
+      await os.User.PushSubscription.optIn();
       toast('Notifications on ✓');
     }
-  } else if (perm === 'granted' && !paused) {
-    // Turn off (pause)
-    localStorage.setItem('notif_paused', '1');
-    toast('Notifications paused');
-  } else if (perm === 'granted' && paused) {
-    // Turn back on
-    localStorage.removeItem('notif_paused');
-    toast('Notifications on ✓');
+    setTimeout(updateNotifSettingsUI, 500);
+  } catch(e) {
+    toast('Could not update notifications', false);
   }
-  updateNotifSettingsUI();
 }
 
 // ── TODO ──
@@ -1570,9 +1559,23 @@ function dismissNotifBanner() {
 }
 
 function sendPushNotif(title, body) {
-  if (Notification.permission === 'granted') {
-    try { new Notification(title, { body, icon: '/favicon.ico', badge: '/favicon.ico' }); } catch {}
-  }
+  // OneSignal handles push delivery server-side — nothing needed here client-side
+  // Notifications are sent via OneSignal dashboard or REST API when triggered
+}
+
+async function getOneSignal() {
+  return new Promise(resolve => {
+    if (window.OneSignal && window.OneSignal.User) return resolve(window.OneSignal);
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    window.OneSignalDeferred.push(os => resolve(os));
+  });
+}
+
+async function isOneSignalSubscribed() {
+  try {
+    const os = await getOneSignal();
+    return await os.User.PushSubscription.optedIn;
+  } catch { return false; }
 }
 
 function notify(who, title, sub) {
@@ -1582,11 +1585,10 @@ function notify(who, title, sub) {
 
 async function pollForUpdates() {
   if (!currentUser) return;
-  if (localStorage.getItem('notif_paused') === '1') return;
   const other = currentUser === 'Almi' ? 'Alvi' : 'Almi';
 
   // Check todos added by the other person in the last 2 minutes
-  const seenTodos = getSeenIds('seen_todos');
+  const seenTodos = getSeenIds('schedule_app_seen_todos');
   const since = new Date(Date.now() - 2 * 60 * 1000).toISOString();
   try {
     const newTodos = await sb('todos', 'GET', null,
@@ -1597,11 +1599,11 @@ async function pollForUpdates() {
         notify(other, `${other} added to the list`, t.text);
       }
     }
-    saveSeenIds('seen_todos', seenTodos);
+    saveSeenIds('schedule_app_seen_todos', seenTodos);
   } catch {}
 
   // Check schedule events added by the other person in the last 2 minutes
-  const seenEvents = getSeenIds('seen_events');
+  const seenEvents = getSeenIds('schedule_app_seen_events');
   try {
     const newEvs = await sb('schedule_events', 'GET', null,
       `?added_by=eq.${other}&created_at=gt.${since}&order=created_at.desc`);
@@ -1612,7 +1614,7 @@ async function pollForUpdates() {
         notify(other, `${other} added an event`, `${e.title}${day ? ' · ' + day : ''}`);
       }
     }
-    saveSeenIds('seen_events', seenEvents);
+    saveSeenIds('schedule_app_seen_events', seenEvents);
   } catch {}
 }
 
@@ -1623,47 +1625,47 @@ function startPolling() {
 
 function dismissNotifPrompt() {
   document.getElementById('notif-prompt').classList.remove('show');
-  localStorage.setItem('notif_prompt_dismissed', '1');
+  localStorage.setItem('schedule_app_notif_prompt_dismissed', '1');
 }
 
 async function requestNotifPermission() {
   dismissNotifPrompt();
-  if (!('Notification' in window)) return;
-  const result = await Notification.requestPermission();
-  if (result === 'granted') {
+  try {
+    const os = await getOneSignal();
+    await os.User.PushSubscription.optIn();
     toast('Notifications enabled ✓');
+    updateNotifSettingsUI();
+  } catch(e) {
+    toast('Could not enable notifications', false);
   }
 }
 
 function initNotifications() {
-  // Seed seen IDs with current data so we don't notify about old items on first load
   async function seedSeen() {
     try {
       const todos = await sb('todos', 'GET', null, '?order=created_at.desc&limit=100');
-      const seenT = new Set(todos.map(t => t.id));
-      saveSeenIds('seen_todos', seenT);
+      saveSeenIds('schedule_app_seen_todos', new Set(todos.map(t => t.id)));
     } catch {}
     try {
       const evs = await sb('schedule_events', 'GET', null, '?order=created_at.desc&limit=100');
-      const seenE = new Set(evs.map(e => e.id));
-      saveSeenIds('seen_events', seenE);
+      saveSeenIds('schedule_app_seen_events', new Set(evs.map(e => e.id)));
     } catch {}
   }
 
-  // Only prompt if not already decided
-  const alreadyDecided = Notification.permission !== 'default' ||
-    localStorage.getItem('notif_prompt_dismissed');
-  if (!alreadyDecided) {
-    setTimeout(() => {
+  // Show prompt after 3s if not already subscribed and not dismissed
+  setTimeout(async () => {
+    const dismissed = localStorage.getItem('schedule_app_notif_prompt_dismissed');
+    if (dismissed) return;
+    const subscribed = await isOneSignalSubscribed();
+    if (!subscribed) {
       document.getElementById('notif-prompt').classList.add('show');
-    }, 3000);
-  }
+    }
+  }, 3000);
 
-  // Seed on first visit, then start polling
-  const alreadySeeded = localStorage.getItem('notif_seeded');
+  const alreadySeeded = localStorage.getItem('schedule_app_notif_seeded');
   if (!alreadySeeded) {
     seedSeen().then(() => {
-      localStorage.setItem('notif_seeded', '1');
+      localStorage.setItem('schedule_app_notif_seeded', '1');
       startPolling();
     });
   } else {
@@ -1678,6 +1680,11 @@ renderTodos();
 renderReviews();
 initSettings();
 initNotifications();
+// Tag current user in OneSignal on load
+window.OneSignalDeferred = window.OneSignalDeferred || [];
+window.OneSignalDeferred.push(async (os) => {
+  try { if (currentUser) await os.User.addTag('schedule_app_user', currentUser); } catch {}
+});
 </script>
 </body>
 </html>
