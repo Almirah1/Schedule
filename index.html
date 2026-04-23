@@ -7,13 +7,6 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>The Weekend</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-<script>
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  OneSignalDeferred.push(async function(OneSignal) {
-    await OneSignal.init({ appId: "5080f892-f938-4cd1-ad0a-b350d4b5081d" });
-  });
-</script>
 <style>
   :root {
     --fri: #c4956a;
@@ -1162,11 +1155,6 @@ function setCurrentUser(name) {
   updateAvatars();
   syncSettingsUser();
   document.querySelectorAll('.user-dropdown').forEach(d => d.classList.remove('open'));
-  // Tag user in OneSignal so push notifications can target them by name
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  window.OneSignalDeferred.push(async (os) => {
-    try { await os.User.addTag('schedule_app_user', name); } catch {}
-  });
   toast('Logged in as ' + name + ' ✓');
 }
 
@@ -1522,11 +1510,15 @@ async function renderReviews() {
 }
 
 // ── NOTIFICATIONS ──
-const POLL_INTERVAL = 30000; // 30 seconds
+// ── NOTIFICATIONS (Native Web Push) ──
+const POLL_INTERVAL = 30000;
 let notifBannerTimer = null;
 let pollTimer = null;
+let swRegistration = null;
 
-// Store the latest seen IDs in localStorage so we don't re-notify
+// Your VAPID public key — paste here after generating at vapidkeys.com
+const VAPID_PUBLIC_KEY = 'BM7OqI-zvHybSQgrLKSRxUYnZbxTm9vKDeaNicxfA0ovn0gFaSlMGKIDA0mD3_at3SlsZAcgeHz4rMuLeHSQjOg';
+
 function getSeenIds(key) {
   try { return new Set(JSON.parse(localStorage.getItem(key) || '[]')); } catch { return new Set(); }
 }
@@ -1546,8 +1538,7 @@ function showNotifBanner(who, title, sub) {
   document.getElementById('notif-avatar').textContent = who[0].toUpperCase();
   document.getElementById('notif-title').textContent = title;
   document.getElementById('notif-sub').textContent = sub;
-  const banner = document.getElementById('notif-banner');
-  banner.classList.add('show');
+  document.getElementById('notif-banner').classList.add('show');
   clearTimeout(notifBannerTimer);
   notifBannerTimer = setTimeout(() => dismissNotifBanner(), 5000);
 }
@@ -1556,55 +1547,163 @@ function dismissNotifBanner() {
   document.getElementById('notif-banner').classList.remove('show');
 }
 
-function sendPushNotif(title, body) {
-  // OneSignal handles push delivery server-side — nothing needed here client-side
-  // Notifications are sent via OneSignal dashboard or REST API when triggered
+function notify(who, title, sub) {
+  showNotifBanner(who, title, sub);
 }
 
-async function getOneSignal() {
-  return new Promise(resolve => {
-    if (window.OneSignal && window.OneSignal.User) return resolve(window.OneSignal);
-    window.OneSignalDeferred = window.OneSignalDeferred || [];
-    window.OneSignalDeferred.push(os => resolve(os));
-  });
-}
-
-async function isOneSignalSubscribed() {
+// Register service worker and return subscription
+async function getOrCreatePushSubscription() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
   try {
-    const os = await getOneSignal();
-    return await os.User.PushSubscription.optedIn;
+    swRegistration = await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+    let sub = await swRegistration.pushManager.getSubscription();
+    if (!sub) {
+      sub = await swRegistration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+    return sub;
+  } catch(e) { console.error('SW error:', e); return null; }
+}
+
+// Save subscription to Supabase so Edge Function can use it
+async function savePushSubscription(sub) {
+  if (!sub || !currentUser) return;
+  const subJson = sub.toJSON();
+  try {
+    // Upsert — replace old subscription for this user
+    await fetch(`${SUPABASE_URL}/rest/v1/schedule_app_push_subscriptions?user_name=eq.${currentUser}`, {
+      method: 'DELETE',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+    });
+    await fetch(`${SUPABASE_URL}/rest/v1/schedule_app_push_subscriptions`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ user_name: currentUser, subscription: subJson }),
+    });
+  } catch(e) { console.error('Failed to save subscription:', e); }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return new Uint8Array([...rawData].map(c => c.charCodeAt(0)));
+}
+
+async function isSubscribed() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    return !!sub && Notification.permission === 'granted';
   } catch { return false; }
 }
 
-function notify(who, title, sub) {
-  showNotifBanner(who, title, sub);
-  sendPushNotif(title, sub);
+function updateNotifSettingsUI() {
+  const btn = document.getElementById('notif-toggle-btn');
+  const label = document.getElementById('notif-status-label');
+  const sub = document.getElementById('notif-status-sub');
+  if (!btn || !label) return;
+
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    label.textContent = 'Not supported';
+    sub.textContent = 'Push notifications require the app to be saved to your Home Screen.';
+    btn.style.display = 'none';
+    return;
+  }
+
+  const perm = Notification.permission;
+  btn.style.display = 'block';
+
+  if (perm === 'denied') {
+    label.textContent = 'Blocked';
+    sub.textContent = 'Notifications are blocked. Go to iOS Settings → Safari → Notifications to allow.';
+    btn.classList.remove('on');
+    btn.style.opacity = '0.4';
+    return;
+  }
+
+  isSubscribed().then(subscribed => {
+    if (subscribed) {
+      label.textContent = 'On';
+      sub.textContent = "You'll be notified when the other person adds something.";
+      btn.classList.add('on');
+    } else {
+      label.textContent = 'Off';
+      sub.textContent = 'Tap to enable notifications for new events and list items.';
+      btn.classList.remove('on');
+    }
+  });
+}
+
+async function toggleNotifications() {
+  const perm = Notification.permission;
+  if (perm === 'denied') { toast('Notifications blocked in settings', false); return; }
+
+  const subscribed = await isSubscribed();
+  if (subscribed) {
+    // Unsubscribe
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) await sub.unsubscribe();
+    // Remove from Supabase
+    await fetch(`${SUPABASE_URL}/rest/v1/schedule_app_push_subscriptions?user_name=eq.${currentUser}`, {
+      method: 'DELETE',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+    });
+    toast('Notifications off');
+  } else {
+    // Subscribe
+    const sub = await getOrCreatePushSubscription();
+    if (sub) {
+      await savePushSubscription(sub);
+      toast('Notifications on ✓');
+    } else {
+      toast('Could not enable notifications', false);
+    }
+  }
+  setTimeout(updateNotifSettingsUI, 300);
+}
+
+function dismissNotifPrompt() {
+  document.getElementById('notif-prompt').classList.remove('show');
+  localStorage.setItem('schedule_app_notif_prompt_dismissed', '1');
+}
+
+async function requestNotifPermission() {
+  dismissNotifPrompt();
+  const sub = await getOrCreatePushSubscription();
+  if (sub) {
+    await savePushSubscription(sub);
+    toast('Notifications enabled ✓');
+    updateNotifSettingsUI();
+  } else {
+    toast('Could not enable notifications', false);
+  }
 }
 
 async function pollForUpdates() {
   if (!currentUser) return;
   const other = currentUser === 'Almi' ? 'Alvi' : 'Almi';
-
-  // Check todos added by the other person in the last 2 minutes
   const seenTodos = getSeenIds('schedule_app_seen_todos');
   const since = new Date(Date.now() - 2 * 60 * 1000).toISOString();
   try {
-    const newTodos = await sb('todos', 'GET', null,
-      `?added_by=eq.${other}&created_at=gt.${since}&order=created_at.desc`);
+    const newTodos = await sb('todos', 'GET', null, `?added_by=eq.${other}&created_at=gt.${since}&order=created_at.desc`);
     for (const t of newTodos) {
-      if (!seenTodos.has(t.id)) {
-        seenTodos.add(t.id);
-        notify(other, `${other} added to the list`, t.text);
-      }
+      if (!seenTodos.has(t.id)) { seenTodos.add(t.id); notify(other, `${other} added to the list`, t.text); }
     }
     saveSeenIds('schedule_app_seen_todos', seenTodos);
   } catch {}
-
-  // Check schedule events added by the other person in the last 2 minutes
   const seenEvents = getSeenIds('schedule_app_seen_events');
   try {
-    const newEvs = await sb('schedule_events', 'GET', null,
-      `?added_by=eq.${other}&created_at=gt.${since}&order=created_at.desc`);
+    const newEvs = await sb('schedule_events', 'GET', null, `?added_by=eq.${other}&created_at=gt.${since}&order=created_at.desc`);
     for (const e of newEvs) {
       if (!seenEvents.has(e.id)) {
         seenEvents.add(e.id);
@@ -1621,23 +1720,6 @@ function startPolling() {
   pollTimer = setInterval(pollForUpdates, POLL_INTERVAL);
 }
 
-function dismissNotifPrompt() {
-  document.getElementById('notif-prompt').classList.remove('show');
-  localStorage.setItem('schedule_app_notif_prompt_dismissed', '1');
-}
-
-async function requestNotifPermission() {
-  dismissNotifPrompt();
-  try {
-    const os = await getOneSignal();
-    await os.User.PushSubscription.optIn();
-    toast('Notifications enabled ✓');
-    updateNotifSettingsUI();
-  } catch(e) {
-    toast('Could not enable notifications', false);
-  }
-}
-
 function initNotifications() {
   async function seedSeen() {
     try {
@@ -1650,22 +1732,16 @@ function initNotifications() {
     } catch {}
   }
 
-  // Show prompt after 3s if not already subscribed and not dismissed
   setTimeout(async () => {
     const dismissed = localStorage.getItem('schedule_app_notif_prompt_dismissed');
     if (dismissed) return;
-    const subscribed = await isOneSignalSubscribed();
-    if (!subscribed) {
-      document.getElementById('notif-prompt').classList.add('show');
-    }
+    const subscribed = await isSubscribed();
+    if (!subscribed) document.getElementById('notif-prompt').classList.add('show');
   }, 3000);
 
   const alreadySeeded = localStorage.getItem('schedule_app_notif_seeded');
   if (!alreadySeeded) {
-    seedSeen().then(() => {
-      localStorage.setItem('schedule_app_notif_seeded', '1');
-      startPolling();
-    });
+    seedSeen().then(() => { localStorage.setItem('schedule_app_notif_seeded', '1'); startPolling(); });
   } else {
     startPolling();
   }
@@ -1678,11 +1754,7 @@ renderTodos();
 renderReviews();
 initSettings();
 initNotifications();
-// Tag current user in OneSignal on load
-window.OneSignalDeferred = window.OneSignalDeferred || [];
-window.OneSignalDeferred.push(async (os) => {
-  try { if (currentUser) await os.User.addTag('schedule_app_user', currentUser); } catch {}
-});
+
 </script>
 </body>
 </html>
