@@ -1600,7 +1600,10 @@ function urlBase64ToUint8Array(base64String) {
 async function isSubscribed() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
   try {
-    const reg = await navigator.serviceWorker.ready;
+    const reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+    ]);
     const sub = await reg.pushManager.getSubscription();
     return !!sub && Notification.permission === 'granted';
   } catch { return false; }
@@ -1614,22 +1617,32 @@ function updateNotifSettingsUI() {
 
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     label.textContent = 'Not supported';
-    sub.textContent = 'Push notifications require the app to be saved to your Home Screen.';
+    sub.textContent = 'Save the app to your Home Screen in Safari to enable notifications.';
     btn.style.display = 'none';
     return;
   }
 
   const perm = Notification.permission;
   btn.style.display = 'block';
+  btn.style.opacity = '1';
 
   if (perm === 'denied') {
     label.textContent = 'Blocked';
-    sub.textContent = 'Notifications are blocked. Go to iOS Settings → Safari → Notifications to allow.';
+    sub.textContent = 'Go to iOS Settings → Safari → Notifications to allow.';
     btn.classList.remove('on');
     btn.style.opacity = '0.4';
     return;
   }
 
+  if (perm === 'default') {
+    label.textContent = 'Off';
+    sub.textContent = 'Tap to enable notifications for new events and list items.';
+    btn.classList.remove('on');
+    return;
+  }
+
+  // Permission granted — check actual subscription (with timeout)
+  label.textContent = 'Checking...';
   isSubscribed().then(subscribed => {
     if (subscribed) {
       label.textContent = 'On';
@@ -1640,6 +1653,10 @@ function updateNotifSettingsUI() {
       sub.textContent = 'Tap to enable notifications for new events and list items.';
       btn.classList.remove('on');
     }
+  }).catch(() => {
+    label.textContent = 'Off';
+    sub.textContent = 'Tap to enable notifications.';
+    btn.classList.remove('on');
   });
 }
 
