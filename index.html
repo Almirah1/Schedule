@@ -323,6 +323,7 @@
   .vibe-btn.active[data-vibe="home"] { background: color-mix(in srgb, #a67850 12%, var(--surface2)); border-color: #a67850; color: #a67850; }
   .vibe-btn.active[data-vibe="date"] { background: color-mix(in srgb, var(--sat) 12%, var(--surface2)); border-color: var(--sat); color: var(--sat); }
   .vibe-btn.active[data-vibe="movie"] { background: color-mix(in srgb, var(--movie) 12%, var(--surface2)); border-color: var(--movie); color: var(--movie); }
+  .vibe-btn.active[data-vibe="app"] { background: color-mix(in srgb, #e8a030 12%, var(--surface2)); border-color: #e8a030; color: #e8a030; }
   .vibe-btn:active { opacity: 0.7; }
 
   /* Vibe tag on todo item */
@@ -333,6 +334,7 @@
   .vibe-home { background: color-mix(in srgb, #a67850 12%, transparent); color: #a67850; }
   .vibe-date { background: color-mix(in srgb, var(--sat) 12%, transparent); color: var(--sat); }
   .vibe-movie { background: color-mix(in srgb, var(--movie) 12%, transparent); color: var(--movie); }
+  .vibe-app { background: color-mix(in srgb, #e8a030 12%, transparent); color: #e8a030; }
   .todo-added-meta {
     font-family: 'Outfit', sans-serif; font-size: 0.58rem; color: var(--muted);
     letter-spacing: 0.05em; text-transform: uppercase; opacity: 0.8;
@@ -551,24 +553,6 @@
     background: none; border: none; color: var(--muted); cursor: pointer;
     font-size: 1.1rem; padding: 0.2rem; flex-shrink: 0; line-height: 1;
   }
-  /* Notification permission prompt */
-  #notif-prompt {
-    position: fixed; bottom: calc(var(--bottom-nav-h) + 0.75rem); left: 1rem; right: 1rem;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-    padding: 1rem 1.1rem; z-index: 500; display: none;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-    animation: slideUp 0.3s ease;
-  }
-  #notif-prompt.show { display: block; }
-  .notif-prompt-title { font-size: 0.85rem; font-weight: 500; color: var(--text); margin-bottom: 0.3rem; }
-  .notif-prompt-sub { font-size: 0.72rem; color: var(--muted); margin-bottom: 0.85rem; line-height: 1.4; }
-  .notif-prompt-btns { display: flex; gap: 0.5rem; }
-  .notif-prompt-btns button {
-    flex: 1; padding: 0.6rem; border-radius: 10px; font-family: 'Outfit', sans-serif;
-    font-size: 0.78rem; font-weight: 500; cursor: pointer; border: none;
-  }
-  .notif-allow { background: var(--accent); color: #fff; }
-  .notif-deny { background: var(--surface2); color: var(--muted); border: 1px solid var(--border) !important; }
 
   /* ── DESKTOP ── */
   @media (min-width: 640px) {
@@ -631,16 +615,6 @@
       <div class="notif-sub" id="notif-sub"></div>
     </div>
     <button class="notif-close" onclick="dismissNotifBanner()">×</button>
-  </div>
-</div>
-
-<!-- NOTIFICATION PERMISSION PROMPT -->
-<div id="notif-prompt">
-  <div class="notif-prompt-title">Stay in the loop 🔔</div>
-  <div class="notif-prompt-sub">Get notified when the other person adds an event or list item.</div>
-  <div class="notif-prompt-btns">
-    <button class="notif-allow" onclick="requestNotifPermission()">Allow</button>
-    <button class="notif-deny" onclick="dismissNotifPrompt()">Not now</button>
   </div>
 </div>
 
@@ -742,6 +716,7 @@
     <button class="vibe-btn active" data-vibe="home" onclick="selectVibe('home')">🏠 At Home</button>
     <button class="vibe-btn" data-vibe="date" onclick="selectVibe('date')">💃 Date</button>
     <button class="vibe-btn" data-vibe="movie" onclick="selectVibe('movie')">🎬 Movie</button>
+    <button class="vibe-btn" data-vibe="app" onclick="selectVibe('app')">💡 App</button>
   </div>
   <div class="todo-filters">
     <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
@@ -751,6 +726,7 @@
     <button class="filter-btn" data-filter="home" onclick="setFilter('home')">🏠</button>
     <button class="filter-btn" data-filter="date" onclick="setFilter('date')">💃</button>
     <button class="filter-btn" data-filter="movie" onclick="setFilter('movie')">🎬</button>
+    <button class="filter-btn" data-filter="app" onclick="setFilter('app')">💡</button>
     <div class="filter-divider"></div>
     <button class="filter-btn" data-filter="almi" onclick="setFilter('almi')">Almi</button>
     <button class="filter-btn" data-filter="alvi" onclick="setFilter('alvi')">Alvi</button>
@@ -1282,8 +1258,8 @@ function setFilter(f) {
   renderTodos();
 }
 
-const VIBE_LABELS = { home: '🏠 At Home', date: '💃 Date', movie: '🎬 Movie' };
-const VIBE_CLS = { home: 'vibe-home', date: 'vibe-date', movie: 'vibe-movie' };
+const VIBE_LABELS = { home: '🏠 At Home', date: '💃 Date', movie: '🎬 Movie', app: '💡 App' };
+const VIBE_CLS = { home: 'vibe-home', date: 'vibe-date', movie: 'vibe-movie', app: 'vibe-app' };
 
 async function renderTodos() {
   const list=document.getElementById('todo-list');
@@ -1299,6 +1275,7 @@ async function renderTodos() {
   else if (todoFilter === 'home') filtered = all.filter(t=>t.vibe==='home'||!t.vibe);
   else if (todoFilter === 'date') filtered = all.filter(t=>t.vibe==='date');
   else if (todoFilter === 'movie') filtered = all.filter(t=>t.vibe==='movie');
+  else if (todoFilter === 'app') filtered = all.filter(t=>t.vibe==='app');
   else if (todoFilter === 'almi') filtered = all.filter(t=>t.added_by==='Almi');
   else if (todoFilter === 'alvi') filtered = all.filter(t=>t.added_by==='Alvi');
 
@@ -1306,7 +1283,7 @@ async function renderTodos() {
   document.getElementById('todo-stats').textContent=done+'/'+all.length+' done';
 
   if(filtered.length===0){
-    const msgs = { done:'nothing done yet...', active:'all clear! 🎉', home:'no at home vibes yet...', date:'no date plans yet...', movie:'no movies on the list yet...', almi:'nothing from Almi yet...', alvi:'nothing from Alvi yet...' };
+    const msgs = { done:'nothing done yet...', active:'all clear! 🎉', home:'no at home vibes yet...', date:'no date plans yet...', movie:'no movies on the list yet...', app:'no app ideas yet...', almi:'nothing from Almi yet...', alvi:'nothing from Alvi yet...' };
     list.innerHTML=`<div class="todo-empty">${msgs[todoFilter]||'the list is empty...'}</div>`; return;
   }
   list.innerHTML=filtered.map(t=>{
@@ -1703,23 +1680,6 @@ async function toggleNotifications() {
   }
 }
 
-function dismissNotifPrompt() {
-  document.getElementById('notif-prompt').classList.remove('show');
-  localStorage.setItem('schedule_app_notif_prompt_dismissed', '1');
-}
-
-async function requestNotifPermission() {
-  dismissNotifPrompt();
-  const sub = await getOrCreatePushSubscription();
-  if (sub) {
-    await savePushSubscription(sub);
-    toast('Notifications enabled ✓');
-    updateNotifSettingsUI();
-  } else {
-    toast('Could not enable notifications', false);
-  }
-}
-
 async function pollForUpdates() {
   if (!currentUser) return;
   const other = currentUser === 'Almi' ? 'Alvi' : 'Almi';
@@ -1762,13 +1722,6 @@ function initNotifications() {
       saveSeenIds('schedule_app_seen_events', new Set(evs.map(e => e.id)));
     } catch {}
   }
-
-  setTimeout(async () => {
-    const dismissed = localStorage.getItem('schedule_app_notif_prompt_dismissed');
-    if (dismissed) return;
-    const subscribed = await isSubscribed();
-    if (!subscribed) document.getElementById('notif-prompt').classList.add('show');
-  }, 3000);
 
   const alreadySeeded = localStorage.getItem('schedule_app_notif_seeded');
   if (!alreadySeeded) {
