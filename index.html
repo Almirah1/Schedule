@@ -210,6 +210,51 @@
   }
   .week-nav button:active { transform: scale(0.92); opacity: 0.7; }
   #week-label { font-size: 0.68rem; text-align: center; text-transform: uppercase; letter-spacing: 0.08em; min-width: 100px; font-family: 'Outfit', sans-serif; }
+  .today-btn {
+    background: none; border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.28rem 0.65rem; font-size: 0.7rem; color: var(--muted);
+    cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.15s;
+  }
+  .today-btn:hover { color: var(--text); border-color: var(--accent); }
+  .today-btn:active { opacity: 0.7; }
+
+  .collapsible-label {
+    display: flex; align-items: center; gap: 0.25rem;
+    padding: 0.5rem 0; cursor: pointer; border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
+  }
+  .collapsible-label:hover label { color: var(--text); }
+  .date-calendar {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden; user-select: none;
+  }
+  .cal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--border);
+  }
+  .cal-month { font-size: 0.78rem; font-weight: 500; color: var(--text); letter-spacing: 0.02em; }
+  .cal-nav {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 1rem; padding: 0.1rem 0.4rem; border-radius: 6px; line-height: 1;
+  }
+  .cal-nav:hover { background: var(--border); color: var(--text); }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; padding: 0.5rem; }
+  .cal-day-header { font-size: 0.55rem; text-align: center; color: var(--muted); padding: 3px 0; text-transform: uppercase; letter-spacing: 0.04em; }
+  .cal-day {
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; border-radius: 6px; cursor: default;
+    color: var(--muted); opacity: 0.3; font-family: 'Outfit', sans-serif;
+  }
+  .cal-day.empty { opacity: 0; pointer-events: none; }
+  .cal-day.weekend, .cal-day.holiday {
+    background: var(--surface); color: var(--text); opacity: 1;
+    cursor: pointer; border: 1px solid var(--border); font-weight: 500;
+    transition: all 0.12s;
+  }
+  .cal-day.holiday { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); color: var(--accent); }
+  .cal-day.weekend:hover, .cal-day.holiday:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .cal-day.selected { background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important; }
+  .cal-day.today-marker { outline: 2px solid var(--accent); outline-offset: 1px; opacity: 1; }
 
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
 
@@ -248,7 +293,7 @@
   .event-edit:active { color: var(--text); }
   /* Card right padding to clear both buttons */
   .event-card { padding: 0.65rem 2.2rem 0.65rem 0.75rem; }
-  .event-wear { font-size: 0.62rem; color: var(--boyle); margin-top: 0.25rem; }
+  .day-holiday { font-size: 0.58rem; color: var(--accent); margin-top: 0.2rem; font-style: italic; }
   .add-btn {
     margin: 0 0.65rem 0.65rem; padding: 0.65rem; background: none; border: 1px dashed var(--border);
     color: var(--muted); border-radius: 8px; cursor: pointer; font-family: 'Outfit', sans-serif;
@@ -310,6 +355,13 @@
     width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
   }
   .todo-del:active { color: #c04040; }
+  .todo-edit-btn {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 0.85rem; flex-shrink: 0;
+    width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+    border-radius: 6px;
+  }
+  .todo-edit-btn:active { color: var(--text); }
   .todo-empty { color: var(--muted); font-size: 0.78rem; text-align: center; padding: 3rem 1rem; font-style: italic; opacity: 0.6; }
 
   /* Vibe picker (add row) — compact, above input */
@@ -671,8 +723,9 @@
     <span id="vibe-pill"></span>
     <div class="mobile-week-nav" id="mobile-week-nav">
       <button onclick="changeWeek(-1)">‹</button>
-      <span id="mobile-week-label"></span>
+      <span id="mobile-week-label" onclick="openJumpModal()" style="cursor:pointer"></span>
       <button onclick="changeWeek(1)">›</button>
+      <button onclick="goToThisWeek()" class="today-btn" style="font-size:0.6rem;padding:0.2rem 0.5rem;height:24px;">Today</button>
     </div>
     <button class="mobile-top-action" id="mobile-top-action" style="background:var(--boyle)" onclick="openBoyleModal()">+ Review</button>
   </div>
@@ -704,8 +757,10 @@
     <div class="schedule-title">The <span style="color:var(--fri)">Weekend</span></div>
     <div class="week-nav">
       <button onclick="changeWeek(-1)">‹</button>
-      <div id="week-label"></div>
+      <div id="week-label" onclick="openJumpModal()" style="cursor:pointer;user-select:none" title="Jump to date"></div>
       <button onclick="changeWeek(1)">›</button>
+      <button onclick="goToThisWeek()" class="today-btn">Today</button>
+      <button onclick="openJumpModal()" class="today-btn">📅</button>
     </div>
   </div>
   <div class="grid" id="sched-grid"></div>
@@ -785,6 +840,47 @@
   </div>
 </div>
 
+<!-- JUMP TO DATE MODAL -->
+<div class="modal-overlay" id="jump-modal">
+  <div class="modal" style="max-width:320px">
+    <div class="modal-handle"></div>
+    <h2>Go to <span style="color:var(--fri)">Date</span></h2>
+    <div class="form-group">
+      <label>Pick any date in the weekend</label>
+      <input type="date" id="jump-date" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('jump-modal')">Cancel</button>
+      <button class="btn-primary" style="background:var(--fri)" onclick="jumpToDate()">Go</button>
+    </div>
+  </div>
+</div>
+
+<!-- TODO EDIT MODAL -->
+<div class="modal-overlay" id="todo-edit-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Edit <span style="color:var(--todo)">Item</span></h2>
+    <div class="form-group">
+      <label>Text</label>
+      <input type="text" id="tef-text" placeholder="What needs doing..." />
+    </div>
+    <div class="form-group">
+      <label>Vibe</label>
+      <div class="who-picker">
+        <button type="button" class="who-btn" data-tvibe="home" onclick="selectTodoEditVibe('home')">🏠 At Home</button>
+        <button type="button" class="who-btn" data-tvibe="date" onclick="selectTodoEditVibe('date')">💃 Date</button>
+        <button type="button" class="who-btn" data-tvibe="movie" onclick="selectTodoEditVibe('movie')">🎬 Movie</button>
+        <button type="button" class="who-btn" data-tvibe="app" onclick="selectTodoEditVibe('app')">💡 App</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('todo-edit-modal')">Cancel</button>
+      <button class="btn-primary" id="todo-edit-save-btn" style="background:var(--todo)" onclick="saveTodoEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- SCHEDULE MODAL -->
 <div class="modal-overlay" id="sched-modal">
   <div class="modal">
@@ -809,12 +905,24 @@
       <input type="text" id="sf-wear" placeholder="smart casual, all black, cosy..." />
     </div>
     <div class="form-group">
+      <label>Address 📍</label>
+      <input type="text" id="sf-address" placeholder="123 Cuba St, Wellington..." />
+    </div>
+    <div class="form-group" id="sched-day-picker-row" style="display:none">
+      <div class="collapsible-label" onclick="toggleCalendar()">
+        <label style="cursor:pointer;margin:0">Move to date</label>
+        <span id="cal-selected-preview" style="font-size:0.72rem;color:var(--accent);flex:1;margin-left:0.5rem"></span>
+        <span id="cal-toggle-icon" style="font-size:0.75rem;color:var(--muted);transition:transform 0.2s">▾</span>
+      </div>
+      <div id="sched-date-calendar" class="date-calendar" style="margin-top:0.5rem;display:none"></div>
+    </div>
+    <div class="form-group">
       <label>Who's coming</label>
       <input type="text" id="sf-who" placeholder="everyone, just us..." />
     </div>
     <div class="form-group">
       <label>Notes</label>
-      <textarea id="sf-notes" placeholder="Address, details, vibes..."></textarea>
+      <textarea id="sf-notes" placeholder="Vibes, details, reminders..."></textarea>
     </div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal('sched-modal')">Cancel</button>
@@ -948,6 +1056,12 @@ function getVibeColors(offset) {
 }
 
 let weekOffset=0, schedDay=null, schedWk=null, editingEvId=null;
+let editingSchedDay = null;
+
+function selectSchedDay(dk) {
+  editingSchedDay = dk;
+  document.querySelectorAll('[data-sday]').forEach(b => b.classList.toggle('active', b.dataset.sday === dk));
+}
 
 function getWeekDates(o) {
   const now=new Date(), day=now.getDay(), dToFri=(5-day+7)%7;
@@ -1017,6 +1131,10 @@ async function renderSchedule() {
   evs.forEach(ev => evMap[ev.id] = ev);
   window._schedEvMap = evMap;
 
+  // NZ holidays for the displayed weeks
+  const holidays = {};
+  [...new Set([dates[0].getFullYear(), dates[2].getFullYear()])].forEach(y => Object.assign(holidays, getNZHolidays(y)));
+
   // Vibe banner below week nav on desktop / top of page on mobile
   const banner = document.createElement('div');
   banner.style.cssText = `grid-column:1/-1;display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;font-size:0.72rem;letter-spacing:0.04em;color:${vibeAccent};font-family:'Outfit',sans-serif;`;
@@ -1033,8 +1151,9 @@ async function renderSchedule() {
         ${fmtTimeRange(ev.event_time, ev.end_time)?'<div class="event-time">'+fmtTimeRange(ev.event_time, ev.end_time)+'</div>':''}
         <div class="event-title">${escH(ev.title)}</div>
         ${ev.wear?'<div class="event-wear">👗 '+escH(ev.wear)+'</div>':''}
+        ${ev.address?'<div class="event-meta">📍 '+escH(ev.address)+'</div>':''}
         ${ev.who?'<div class="event-meta">👥 '+escH(ev.who)+'</div>':''}
-        ${ev.notes?'<div class="event-meta">📍 '+escH(ev.notes)+'</div>':''}
+        ${ev.notes?'<div class="event-meta">💬 '+escH(ev.notes)+'</div>':''}
         ${ev.added_by?`<span class="event-added-by added-${ev.added_by.toLowerCase()}">${escH(ev.added_by)}</span>`:''}
       </div>`).join('');
     col.innerHTML=`
@@ -1042,6 +1161,7 @@ async function renderSchedule() {
         <div>
           <div class="day-name">${DAY_NAMES[i]}</div>
           <div class="day-date">${dates[i].toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
+          ${holidays[dates[i].toISOString().slice(0,10)] ? `<div class="day-holiday">🇳🇿 ${holidays[dates[i].toISOString().slice(0,10)]}</div>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:.5rem">
           <span style="font-size:.63rem;color:var(--muted)">${dayEvs.length||''}</span>
@@ -1065,6 +1185,7 @@ function openSchedModal(dk, wk) {
   ['sf-title','sf-who','sf-notes','sf-wear'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('sf-time').value='';
   document.getElementById('sf-end-time').value='';
+  document.getElementById('sched-day-picker-row').style.display = 'none';
   document.getElementById('sched-modal').classList.add('open');
   setTimeout(()=>document.getElementById('sf-title').focus(),100);
 }
@@ -1073,6 +1194,7 @@ function openEditModal(id) {
   const ev = (window._schedEvMap || {})[id];
   if (!ev) { toast('Could not load event', false); return; }
   editingEvId = ev.id;
+  editingSchedDay = ev.day;
   schedDay = ev.day; schedWk = ev.week_start;
   const dk = ev.day, i = DAY_KEYS.indexOf(dk), c = getVibeColors(weekOffset)[dk];
   const titleEl = document.getElementById('sched-modal-title');
@@ -1083,8 +1205,20 @@ function openEditModal(id) {
   document.getElementById('sf-time').value = ev.event_time || '';
   document.getElementById('sf-end-time').value = ev.end_time || '';
   document.getElementById('sf-wear').value = ev.wear || '';
+  document.getElementById('sf-address').value = ev.address || '';
   document.getElementById('sf-who').value = ev.who || '';
   document.getElementById('sf-notes').value = ev.notes || '';
+  // Show calendar date picker collapsed by default
+  selectedCalDate = null;
+  calOpen = false;
+  const calEl = document.getElementById('sched-date-calendar');
+  const icon = document.getElementById('cal-toggle-icon');
+  if (calEl) calEl.style.display = 'none';
+  if (icon) icon.style.transform = '';
+  document.getElementById('sched-day-picker-row').style.display = 'block';
+  const evDate = new Date(ev.week_start + 'T00:00:00');
+  buildEventCalendar(ev.week_start, evDate.getFullYear(), evDate.getMonth());
+  updateCalPreview();
   document.getElementById('sched-modal').classList.add('open');
   setTimeout(()=>document.getElementById('sf-title').focus(),100);
 }
@@ -1101,13 +1235,23 @@ async function saveSchedEvent() {
     event_time: document.getElementById('sf-time').value || null,
     end_time: document.getElementById('sf-end-time').value || null,
     wear: document.getElementById('sf-wear').value.trim() || null,
+    address: document.getElementById('sf-address').value.trim() || null,
     who: document.getElementById('sf-who').value.trim() || null,
     notes: document.getElementById('sf-notes').value.trim() || null,
     added_by: editingEvId ? undefined : currentUser,
   };
   try {
     if (editingEvId) {
-      await sb('schedule_events','PATCH', payload, `?id=eq.${editingEvId}`);
+      // If user picked a new date via calendar, update day and week_start
+      const newDay = selectedCalDate ? selectedCalDate.dayKey : (editingSchedDay || schedDay);
+      const newWeek = selectedCalDate ? selectedCalDate.weekStart : schedWk;
+      await sb('schedule_events','PATCH', { ...payload, day: newDay, week_start: newWeek }, `?id=eq.${editingEvId}`);
+      // If moved to a different week, navigate there
+      if (selectedCalDate && selectedCalDate.weekStart !== schedWk) {
+        const currentFri = getWeekDates(0)[0];
+        const newFri = new Date(selectedCalDate.weekStart + 'T00:00:00');
+        weekOffset = Math.round((newFri - currentFri) / (7 * 24 * 60 * 60 * 1000));
+      }
       toast('Event updated!');
     } else {
       await sb('schedule_events','POST', { week_start: schedWk, day: schedDay, ...payload });
@@ -1317,13 +1461,252 @@ async function renderTodos() {
         <div class="todo-text">${escH(t.text)}</div>
         <div style="margin-top:0.3rem;display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center">${vibeTag}${addedByText}</div>
       </div>
-      <span class="todo-date">${new Date(t.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
+      <button class="todo-edit-btn" onclick="openTodoEdit('${t.id}','${escH(t.text).replace(/'/g,"\\'")}','${t.vibe||'home'}')">✎</button>
       <button class="todo-del" onclick="deleteTodo('${t.id}')">×</button>
     </div>`;
   }).join('');
 }
 
-document.getElementById('todo-input').addEventListener('keydown',e=>{ if(e.key==='Enter') addTodo(); });
+// ── TODO EDIT ──
+let editingTodoId = null, editingTodoVibe = 'home';
+
+function openTodoEdit(id, text, vibe) {
+  editingTodoId = id;
+  editingTodoVibe = vibe;
+  document.getElementById('tef-text').value = text;
+  document.querySelectorAll('[data-tvibe]').forEach(b => b.classList.toggle('active', b.dataset.tvibe === vibe));
+  document.getElementById('todo-edit-modal').classList.add('open');
+  setTimeout(() => document.getElementById('tef-text').focus(), 100);
+}
+
+function selectTodoEditVibe(v) {
+  editingTodoVibe = v;
+  document.querySelectorAll('[data-tvibe]').forEach(b => b.classList.toggle('active', b.dataset.tvibe === v));
+}
+
+async function saveTodoEdit() {
+  const text = document.getElementById('tef-text').value.trim();
+  if (!text) { document.getElementById('tef-text').style.borderColor = '#c04040'; return; }
+  document.getElementById('tef-text').style.borderColor = '';
+  const btn = document.getElementById('todo-edit-save-btn');
+  btn.textContent = 'Saving...'; btn.disabled = true;
+  try {
+    await sb('todos', 'PATCH', { text, vibe: editingTodoVibe }, `?id=eq.${editingTodoId}`);
+    closeModal('todo-edit-modal');
+    toast('Updated!');
+    renderTodos();
+  } catch(e) { toast('Failed to save', false); }
+  finally { btn.textContent = 'Save'; btn.disabled = false; }
+}
+
+document.getElementById('tef-text').addEventListener('keydown', e => { if (e.key === 'Enter') saveTodoEdit(); });
+
+// ── NZ PUBLIC HOLIDAYS ──
+// Fixed holidays (month is 0-indexed)
+const NZ_FIXED = [
+  { m:0,  d:1,  name:"New Year's Day" },
+  { m:0,  d:2,  name:"Day after New Year's" },
+  { m:1,  d:6,  name:"Waitangi Day" },
+  { m:3,  d:25, name:"ANZAC Day" },
+  { m:5,  d:2,  name:"Queen's Birthday" }, // first Mon June — handled separately
+  { m:9,  d:28, name:"Labour Day" },        // fourth Mon Oct — handled separately
+  { m:11, d:25, name:"Christmas Day" },
+  { m:11, d:26, name:"Boxing Day" },
+];
+
+function nthWeekday(year, month, weekday, n) {
+  // nth occurrence of weekday (0=Sun) in given month
+  const d = new Date(year, month, 1);
+  let count = 0;
+  while (d.getMonth() === month) {
+    if (d.getDay() === weekday) { count++; if (count === n) return d.getDate(); }
+    d.setDate(d.getDate() + 1);
+  }
+  return null;
+}
+
+function lastWeekday(year, month, weekday) {
+  const d = new Date(year, month + 1, 0); // last day of month
+  while (d.getDay() !== weekday) d.setDate(d.getDate() - 1);
+  return d.getDate();
+}
+
+function getNZHolidays(year) {
+  const holidays = {};
+  const add = (m, d, name) => {
+    const key = `${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    holidays[key] = name;
+  };
+  // Fixed
+  NZ_FIXED.forEach(h => add(h.m, h.d, h.name));
+  // Easter (Good Friday + Easter Monday)
+  const easter = getEaster(year);
+  const gf = new Date(easter); gf.setDate(easter.getDate() - 2);
+  const em = new Date(easter); em.setDate(easter.getDate() + 1);
+  add(gf.getMonth(), gf.getDate(), "Good Friday");
+  add(em.getMonth(), em.getDate(), "Easter Monday");
+  // Matariki — 4th Friday of June from 2022 (approx; officially varies)
+  const matariki = nthWeekday(year, 5, 5, 4); // 4th Friday June
+  if (matariki) add(5, matariki, "Matariki");
+  // Queen's/King's Birthday — first Monday June
+  const qb = nthWeekday(year, 5, 1, 1);
+  if (qb) add(5, qb, "King's Birthday");
+  // Labour Day — fourth Monday October
+  const ld = nthWeekday(year, 9, 1, 4);
+  if (ld) add(9, ld, "Labour Day");
+  return holidays;
+}
+
+function getEaster(year) {
+  // Anonymous Gregorian algorithm
+  const a=year%19, b=Math.floor(year/100), c=year%100;
+  const d=Math.floor(b/4), e=b%4, f=Math.floor((b+8)/25);
+  const g=Math.floor((b-f+1)/3), h=(19*a+b-d-g+15)%30;
+  const i=Math.floor(c/4), k=c%4, l=(32+2*e+2*i-h-k)%7;
+  const m=Math.floor((a+11*h+22*l)/451);
+  const month=Math.floor((h+l-7*m+114)/31)-1;
+  const day=((h+l-7*m+114)%31)+1;
+  return new Date(year, month, day);
+}
+
+// ── JUMP TO DATE ──
+function openJumpModal() {
+  // Default to today
+  const today = new Date();
+  document.getElementById('jump-date').value = today.toISOString().slice(0,10);
+  document.getElementById('jump-modal').classList.add('open');
+}
+
+function jumpToDate() {
+  const val = document.getElementById('jump-date').value;
+  if (!val) return;
+  const picked = new Date(val + 'T00:00:00');
+  const day = picked.getDay();
+  const daysFromFri = (day + 2) % 7;
+  const fri = new Date(picked);
+  fri.setDate(picked.getDate() - daysFromFri);
+  const currentFri = getWeekDates(0)[0];
+  const diff = Math.round((fri - currentFri) / (7 * 24 * 60 * 60 * 1000));
+  weekOffset += diff;
+  closeModal('jump-modal');
+  renderSchedule();
+}
+
+function goToThisWeek() {
+  weekOffset = 0;
+  renderSchedule();
+}
+
+let calOpen = false;
+
+function toggleCalendar() {
+  calOpen = !calOpen;
+  const cal = document.getElementById('sched-date-calendar');
+  const icon = document.getElementById('cal-toggle-icon');
+  if (cal) cal.style.display = calOpen ? 'block' : 'none';
+  if (icon) icon.style.transform = calOpen ? 'rotate(180deg)' : '';
+}
+
+function updateCalPreview() {
+  const preview = document.getElementById('cal-selected-preview');
+  if (!preview) return;
+  if (selectedCalDate) {
+    const d = new Date(selectedCalDate.iso + 'T00:00:00');
+    preview.textContent = d.toLocaleDateString('en-NZ', { weekday:'short', day:'numeric', month:'short' });
+  } else {
+    preview.textContent = '';
+  }
+}
+
+// ── EVENT DATE CALENDAR PICKER ──
+let selectedCalDate = null;
+let calViewYear = null, calViewMonth = null;
+
+function buildEventCalendar(currentWeekStart, year, month) {
+  const today = new Date();
+  if (year === undefined) { year = today.getFullYear(); month = today.getMonth(); }
+  calViewYear = year; calViewMonth = month;
+
+  const cal = document.getElementById('sched-date-calendar');
+  if (!cal) return;
+  cal.innerHTML = '';
+
+  const holidays = { ...getNZHolidays(year), ...getNZHolidays(year + 1) };
+  const d = new Date(year, month, 1);
+  const monthName = d.toLocaleDateString('en-NZ', { month:'long', year:'numeric' });
+
+  // Header with prev/next
+  const header = document.createElement('div');
+  header.className = 'cal-header';
+  header.innerHTML = `
+    <button class="cal-nav" onclick="buildEventCalendar('${currentWeekStart}',${month===0?year-1:year},${month===0?11:month-1})">‹</button>
+    <span class="cal-month">${monthName}</span>
+    <button class="cal-nav" onclick="buildEventCalendar('${currentWeekStart}',${month===11?year+1:year},${month===11?0:month+1})">›</button>
+  `;
+  cal.appendChild(header);
+
+  const grid = document.createElement('div');
+  grid.className = 'cal-grid';
+
+  ['M','T','W','T','F','S','S'].forEach(h => {
+    const hd = document.createElement('div');
+    hd.className = 'cal-day-header'; hd.textContent = h;
+    grid.appendChild(hd);
+  });
+
+  const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
+  for (let i = 0; i < firstDay; i++) {
+    const blank = document.createElement('div');
+    blank.className = 'cal-day empty'; grid.appendChild(blank);
+  }
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dt = new Date(year, month, day);
+    const iso = dt.toISOString().slice(0, 10);
+    const dow = dt.getDay();
+    const isWeekend = dow === 5 || dow === 6 || dow === 0;
+    const holidayName = holidays[iso];
+    const isToday = dt.toDateString() === today.toDateString();
+
+    const cell = document.createElement('div');
+    cell.className = 'cal-day';
+    cell.textContent = day;
+    if (isToday) cell.classList.add('today-marker');
+
+    if (isWeekend || holidayName) {
+      cell.classList.add(holidayName ? 'holiday' : 'weekend');
+      const daysFromFri = (dow + 2) % 7;
+      const fri = new Date(dt); fri.setDate(dt.getDate() - daysFromFri);
+      const wkStart = fri.toISOString().slice(0, 10);
+      const dayKey = dow === 5 ? 'fri' : dow === 6 ? 'sat' : 'sun';
+      if (holidayName) cell.title = holidayName;
+
+      // Restore previous selection if still visible
+      if (selectedCalDate && selectedCalDate.iso === iso) cell.classList.add('selected');
+      // Pre-select current event day on first open
+      if (!selectedCalDate && wkStart === currentWeekStart && dayKey === schedDay) {
+        cell.classList.add('selected');
+        selectedCalDate = { iso, dayKey, weekStart: wkStart };
+      }
+
+      cell.onclick = () => {
+          document.querySelectorAll('.cal-day.selected').forEach(c => c.classList.remove('selected'));
+          cell.classList.add('selected');
+          selectedCalDate = { iso, dayKey, weekStart: wkStart };
+          updateCalPreview();
+          // Auto-collapse after picking
+          calOpen = false;
+          const calEl = document.getElementById('sched-date-calendar');
+          const icon = document.getElementById('cal-toggle-icon');
+          if (calEl) calEl.style.display = 'none';
+          if (icon) icon.style.transform = '';
+        };
+    }
+    grid.appendChild(cell);
+  }
+  cal.appendChild(grid);
+}
 
 // ── BOYLE ──
 const CRITERIA = [
