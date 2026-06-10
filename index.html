@@ -1187,6 +1187,7 @@ async function renderSchedule() {
     ${mwEvHtml}
     <button class="add-btn" onclick="openMidweekModal('${wk}')" style="width:100%">+ add midweek event</button>`;
   grid.appendChild(mwSection);
+}
 
 function buildEvCard(ev) {
   const isMidweek = MIDWEEK_KEYS.includes(ev.day);
