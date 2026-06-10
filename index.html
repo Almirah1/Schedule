@@ -95,7 +95,7 @@
     flex-shrink: 0; white-space: nowrap;
   }
   .mobile-week-nav {
-    display: none; align-items: center; gap: 0.35rem; margin-left: auto; flex-shrink: 0;
+    display: none; align-items: center; gap: 0.25rem; margin-left: auto; flex-shrink: 0; flex: 1; justify-content: flex-end;
   }
   .mobile-week-nav.visible { display: flex; }
   .mobile-week-nav button {
@@ -723,9 +723,10 @@
     <span id="vibe-pill"></span>
     <div class="mobile-week-nav" id="mobile-week-nav">
       <button onclick="changeWeek(-1)">‹</button>
-      <span id="mobile-week-label" onclick="openJumpModal()" style="cursor:pointer"></span>
+      <span id="mobile-week-label" onclick="openJumpModal()" style="cursor:pointer;flex:1;text-align:center"></span>
       <button onclick="changeWeek(1)">›</button>
-      <button onclick="goToThisWeek()" class="today-btn" style="font-size:0.6rem;padding:0.2rem 0.5rem;height:24px;">Today</button>
+      <button onclick="goToThisWeek()" class="today-btn" style="font-size:0.58rem;padding:0.18rem 0.45rem;height:22px;margin-left:2px;">Today</button>
+      <button onclick="openJumpModal()" class="today-btn" style="font-size:0.75rem;padding:0.18rem 0.45rem;height:22px;margin-left:2px;">📅</button>
     </div>
     <button class="mobile-top-action" id="mobile-top-action" style="background:var(--boyle)" onclick="openBoyleModal()">+ Review</button>
   </div>
@@ -1230,12 +1231,13 @@ async function saveSchedEvent() {
   const btn=document.getElementById('sched-save-btn');
   const origText = btn.textContent;
   btn.textContent='Saving...'; btn.disabled=true;
+  const addressEl = document.getElementById('sf-address');
   const payload = {
     title,
     event_time: document.getElementById('sf-time').value || null,
     end_time: document.getElementById('sf-end-time').value || null,
     wear: document.getElementById('sf-wear').value.trim() || null,
-    address: document.getElementById('sf-address').value.trim() || null,
+    address: addressEl ? (addressEl.value.trim() || null) : null,
     who: document.getElementById('sf-who').value.trim() || null,
     notes: document.getElementById('sf-notes').value.trim() || null,
     added_by: editingEvId ? undefined : currentUser,
