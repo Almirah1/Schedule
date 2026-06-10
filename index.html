@@ -1122,7 +1122,7 @@ const MIDWEEK_KEYS = ['mon','tue','wed','thu'];
 // We normalise so that negative offsets also alternate correctly.
 function getWeekVibe(offset) {
   // Use a fixed reference: weekOffset 0 is "date". Mod 2 with correct handling for negatives.
-  return ((offset % 2) + 2) % 2 === 0 ? 'home' : 'date';
+  return ((offset % 2) + 2) % 2 === 0 ? 'date' : 'home';
 }
 
 // Date weekend: warm mauve/plum — no blue
@@ -1729,9 +1729,15 @@ function jumpToDate() {
   if (!val) return;
   const picked = new Date(val + 'T00:00:00');
   const day = picked.getDay();
-  const daysFromFri = (day + 2) % 7;
-  const fri = new Date(picked);
-  fri.setDate(picked.getDate() - daysFromFri);
+  let fri;
+  if (day >= 1 && day <= 4) {
+    // Midweek — jump to the upcoming Friday's weekend
+    const daysToFri = 5 - day;
+    fri = new Date(picked); fri.setDate(picked.getDate() + daysToFri);
+  } else {
+    const daysFromFri = (day + 2) % 7;
+    fri = new Date(picked); fri.setDate(picked.getDate() - daysFromFri);
+  }
   const currentFri = getWeekDates(0)[0];
   const diff = Math.round((fri - currentFri) / (7 * 24 * 60 * 60 * 1000));
   weekOffset += diff;
@@ -1828,8 +1834,18 @@ function buildEventCalendar(currentWeekStart, year, month) {
 
     const DOW_KEY = ['sun','mon','tue','wed','thu','fri','sat'];
     const dayKey = DOW_KEY[dow];
-    const daysFromFri = (dow + 2) % 7;
-    const fri = new Date(dt); fri.setDate(dt.getDate() - daysFromFri);
+    // For midweek days (Mon-Thu), associate with the NEXT weekend (upcoming Friday)
+    // For Fri/Sat/Sun, associate with the current weekend Friday
+    let fri;
+    if (dow >= 1 && dow <= 4) {
+      // Mon(1)-Thu(4): go forward to next Friday
+      const daysToFri = 5 - dow;
+      fri = new Date(dt); fri.setDate(dt.getDate() + daysToFri);
+    } else {
+      // Fri(5)/Sat(6)/Sun(0): go back to this weekend's Friday
+      const daysFromFri = (dow + 2) % 7;
+      fri = new Date(dt); fri.setDate(dt.getDate() - daysFromFri);
+    }
     const wkStart = fri.toISOString().slice(0, 10);
     if (holidayName) cell.title = holidayName;
 
