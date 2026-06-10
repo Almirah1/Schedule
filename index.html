@@ -298,8 +298,45 @@
   }
   .event-edit:active { color: var(--text); }
   /* Card right padding to clear both buttons */
-  .event-card { padding: 0.65rem 2.2rem 0.65rem 0.75rem; }
+  .event-card { padding: 0.65rem 5rem 0.65rem 0.75rem; }
   .midweek-card { border-left: 3px solid var(--muted); }
+
+  /* ── MEMORY MODAL ── */
+  .photo-upload-area {
+    border: 1.5px dashed var(--border); border-radius: 12px; cursor: pointer;
+    min-height: 80px; padding: 0.75rem; transition: border-color 0.15s;
+    display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  .photo-upload-area:hover { border-color: var(--accent); }
+  .photo-upload-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem; padding: 0.5rem; }
+  .photo-preview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .photo-preview-item { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; }
+  .photo-preview-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-preview-item .photo-remove {
+    position: absolute; top: 3px; right: 3px; width: 20px; height: 20px;
+    background: rgba(0,0,0,0.5); color: #fff; border: none; border-radius: 50%;
+    cursor: pointer; font-size: 0.7rem; display: flex; align-items: center; justify-content: center;
+  }
+  .photo-uploading { opacity: 0.6; }
+  /* Existing memories */
+  .memory-entry {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 0.85rem; margin-bottom: 0.6rem;
+  }
+  .memory-entry-photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 0.5rem; }
+  .memory-entry-photos img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; cursor: pointer; }
+  .memory-entry-note { font-size: 0.82rem; color: var(--text); line-height: 1.5; font-style: italic; }
+  .memory-entry-meta { font-size: 0.6rem; color: var(--muted); margin-top: 0.4rem; text-transform: uppercase; letter-spacing: 0.06em; }
+  .memory-entry-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.7rem; float: right; }
+  /* Camera icon on event card */
+  .event-camera {
+    position: absolute; top: 0.4rem; right: 1.8rem;
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 0.8rem; width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center; border-radius: 6px;
+  }
+  .event-camera:active { color: var(--accent); }
+  .event-has-memory { color: var(--accent) !important; }
   .add-btn {
     margin: 0 0.65rem 0.65rem; padding: 0.65rem; background: none; border: 1px dashed var(--border);
     color: var(--muted); border-radius: 8px; cursor: pointer; font-family: 'Outfit', sans-serif;
@@ -638,8 +675,11 @@
     input[type=text], input[type=time], textarea, select { font-size: 0.83rem; }
     .event-delete { opacity: 0; transition: opacity 0.2s; }
     .event-edit { opacity: 0; transition: opacity 0.2s; }
+    .event-camera { opacity: 0; transition: opacity 0.2s; }
     .event-card:hover .event-delete { opacity: 1; }
     .event-card:hover .event-edit { opacity: 1; }
+    .event-card:hover .event-camera { opacity: 1; }
+    .event-has-memory { opacity: 1 !important; }
     .todo-del { opacity: 0; transition: opacity 0.2s; }
     .todo-item:hover .todo-del { opacity: 1; }
     .review-del { opacity: 0; transition: opacity 0.2s; }
@@ -859,6 +899,41 @@
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal('jump-modal')">Cancel</button>
       <button class="btn-primary" style="background:var(--fri)" onclick="jumpToDate()">Go</button>
+    </div>
+  </div>
+</div>
+
+<!-- MEMORY MODAL -->
+<div class="modal-overlay" id="memory-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>📸 <span id="memory-modal-event-title" style="color:var(--accent)"></span></h2>
+
+    <div class="form-group">
+      <label>Photos</label>
+      <div class="photo-upload-area" id="photo-upload-area" onclick="document.getElementById('photo-file-input').click()">
+        <input type="file" id="photo-file-input" accept="image/*" multiple style="display:none" onchange="handlePhotoSelect(event)" />
+        <div class="photo-upload-placeholder" id="photo-upload-placeholder">
+          <span style="font-size:1.5rem">📷</span>
+          <span style="font-size:0.78rem;color:var(--muted)">Tap to add photos</span>
+        </div>
+        <div class="photo-preview-grid" id="photo-preview-grid"></div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Note</label>
+      <textarea id="memory-note" placeholder="How was it? What was memorable..." rows="4"></textarea>
+    </div>
+
+    <div id="existing-memories-wrap" style="display:none">
+      <div style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.75rem">Previous memories</div>
+      <div id="existing-memories-list"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('memory-modal')">Close</button>
+      <button class="btn-primary" id="memory-save-btn" style="background:var(--accent)" onclick="saveMemory()">Save Memory</button>
     </div>
   </div>
 </div>
@@ -1140,6 +1215,9 @@ async function renderSchedule() {
   evs.forEach(ev => evMap[ev.id] = ev);
   window._schedEvMap = evMap;
 
+  // Load memory map so camera icons can show filled state
+  await loadMemoryMap(evs.map(e => e.id));
+
   // NZ holidays for the displayed weeks
   const holidays = {};
   [...new Set([dates[0].getFullYear(), dates[2].getFullYear()])].forEach(y => Object.assign(holidays, getNZHolidays(y)));
@@ -1192,8 +1270,10 @@ async function renderSchedule() {
 
 function buildEvCard(ev) {
   const isMidweek = MIDWEEK_KEYS.includes(ev.day);
+  const hasMemory = (window._memoryMap || {})[ev.id];
   return `<div class="event-card${isMidweek?' midweek-card':''}">
     <button class="event-edit" onclick="openEditModal('${ev.id}')" title="Edit">✎</button>
+    <button class="event-camera${hasMemory?' event-has-memory':''}" onclick="openMemoryModal('${ev.id}','${escH(ev.title)}')" title="Memory">📸</button>
     <button class="event-delete" onclick="delSchedEv('${ev.id}')" title="Delete">×</button>
     ${fmtTimeRange(ev.event_time, ev.end_time)?'<div class="event-time">'+fmtTimeRange(ev.event_time, ev.end_time)+'</div>':''}
     <div class="event-title">${escH(ev.title)}</div>
@@ -1773,6 +1853,127 @@ function buildEventCalendar(currentWeekStart, year, month) {
     grid.appendChild(cell);
   }
   cal.appendChild(grid);
+}
+
+// ── MEMORIES ──
+let memoryEventId = null;
+let pendingPhotoFiles = [];
+
+async function loadMemoryMap(eventIds) {
+  if (!eventIds.length) return;
+  try {
+    const ids = eventIds.join(',');
+    const memories = await sb('event_memories','GET',null,`?event_id=in.(${ids})&select=id,event_id`);
+    window._memoryMap = {};
+    memories.forEach(m => window._memoryMap[m.event_id] = true);
+  } catch {}
+}
+
+async function openMemoryModal(eventId, eventTitle) {
+  memoryEventId = eventId;
+  pendingPhotoFiles = [];
+  document.getElementById('memory-modal-event-title').textContent = eventTitle;
+  document.getElementById('memory-note').value = '';
+  document.getElementById('photo-preview-grid').innerHTML = '';
+  document.getElementById('photo-upload-placeholder').style.display = 'flex';
+  document.getElementById('existing-memories-wrap').style.display = 'none';
+  document.getElementById('memory-modal').classList.add('open');
+  // Load existing memories
+  try {
+    const memories = await sb('event_memories','GET',null,`?event_id=eq.${eventId}&order=created_at.desc`);
+    if (memories.length > 0) {
+      document.getElementById('existing-memories-wrap').style.display = 'block';
+      const list = document.getElementById('existing-memories-list');
+      list.innerHTML = '';
+      for (const m of memories) {
+        const photos = await sb('event_photos','GET',null,`?memory_id=eq.${m.id}`);
+        const photoHtml = photos.length ? `<div class="memory-entry-photos">${photos.map(p=>`<img src="${SUPABASE_URL}/storage/v1/object/public/event-photos/${p.storage_path}" onclick="window.open(this.src)" />`).join('')}</div>` : '';
+        const d = new Date(m.created_at);
+        const meta = `${m.added_by||''} · ${d.toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric'})}`;
+        const entry = document.createElement('div');
+        entry.className = 'memory-entry';
+        entry.innerHTML = `
+          <button class="memory-entry-del" onclick="deleteMemory('${m.id}',this.closest('.memory-entry'))">× remove</button>
+          ${photoHtml}
+          ${m.note ? `<div class="memory-entry-note">"${escH(m.note)}"</div>` : ''}
+          <div class="memory-entry-meta">${escH(meta)}</div>`;
+        list.appendChild(entry);
+      }
+    }
+  } catch(e) { console.error('Failed to load memories', e); }
+}
+
+function handlePhotoSelect(event) {
+  const files = Array.from(event.target.files);
+  files.forEach(file => {
+    pendingPhotoFiles.push(file);
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('photo-upload-placeholder').style.display = 'none';
+      const grid = document.getElementById('photo-preview-grid');
+      const item = document.createElement('div');
+      item.className = 'photo-preview-item';
+      item.innerHTML = `<img src="${e.target.result}" /><button class="photo-remove" onclick="removePhotoPreview(this,'${file.name}')">×</button>`;
+      grid.appendChild(item);
+    };
+    reader.readAsDataURL(file);
+  });
+  event.target.value = '';
+}
+
+function removePhotoPreview(btn, fileName) {
+  pendingPhotoFiles = pendingPhotoFiles.filter(f => f.name !== fileName);
+  btn.closest('.photo-preview-item').remove();
+  if (document.getElementById('photo-preview-grid').children.length === 0) {
+    document.getElementById('photo-upload-placeholder').style.display = 'flex';
+  }
+}
+
+async function uploadPhoto(file, memoryId) {
+  const ext = file.name.split('.').pop();
+  const path = `${memoryEventId}/${memoryId}/${Date.now()}.${ext}`;
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/event-photos/${path}`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': file.type },
+    body: file,
+  });
+  if (!res.ok) throw new Error('Upload failed');
+  await sb('event_photos','POST',{ event_id: memoryEventId, memory_id: memoryId, storage_path: path, added_by: currentUser });
+  return path;
+}
+
+async function saveMemory() {
+  const note = document.getElementById('memory-note').value.trim();
+  if (!note && pendingPhotoFiles.length === 0) { toast('Add a photo or note first', false); return; }
+  const btn = document.getElementById('memory-save-btn');
+  btn.textContent = 'Saving...'; btn.disabled = true;
+  try {
+    // Create memory record
+    const memories = await sb('event_memories','POST',{ event_id: memoryEventId, note: note || null, added_by: currentUser });
+    const memoryId = memories[0].id;
+    // Upload photos
+    if (pendingPhotoFiles.length > 0) {
+      await Promise.all(pendingPhotoFiles.map(f => uploadPhoto(f, memoryId)));
+    }
+    toast('Memory saved! 📸');
+    // Update memory map and re-render camera icons
+    if (!window._memoryMap) window._memoryMap = {};
+    window._memoryMap[memoryEventId] = true;
+    closeModal('memory-modal');
+    renderSchedule();
+  } catch(e) { console.error(e); toast('Failed to save memory', false); }
+  finally { btn.textContent = 'Save Memory'; btn.disabled = false; }
+}
+
+async function deleteMemory(memoryId, el) {
+  try {
+    await sb('event_memories','DELETE',null,`?id=eq.${memoryId}`);
+    el.remove();
+    toast('Memory removed');
+    if (document.getElementById('existing-memories-list').children.length === 0) {
+      document.getElementById('existing-memories-wrap').style.display = 'none';
+    }
+  } catch { toast('Failed to remove', false); }
 }
 
 // ── BOYLE ──
