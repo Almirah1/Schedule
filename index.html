@@ -1172,21 +1172,21 @@ async function renderSchedule() {
 
   // Midweek events
   const midweekEvs = evs.filter(e => MIDWEEK_KEYS.includes(e.day));
-  if (midweekEvs.length > 0) {
-    const mwSection = document.createElement('div');
-    mwSection.style.cssText = 'grid-column:1/-1;margin-top:0.75rem;';
-    mwSection.innerHTML = `
-      <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.6rem;padding-bottom:0.4rem;border-bottom:1px solid var(--border);">📅 Midweek</div>
-      <div style="display:flex;flex-direction:column;gap:0.5rem;">
-        ${midweekEvs.map(ev => `
-          <div style="display:flex;align-items:center;gap:0.5rem;">
-            <span style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);width:28px;flex-shrink:0;">${ev.day.charAt(0).toUpperCase()+ev.day.slice(1)}</span>
-            <div style="flex:1">${buildEvCard(ev)}</div>
-          </div>`).join('')}
-      </div>`;
-    grid.appendChild(mwSection);
-  }
-}
+  const mwSection = document.createElement('div');
+  mwSection.style.cssText = 'grid-column:1/-1;margin-top:0.75rem;';
+  const mwEvHtml = midweekEvs.length === 0 ? '' : `
+    <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:0.6rem;">
+      ${midweekEvs.map(ev => `
+        <div style="display:flex;align-items:flex-start;gap:0.5rem;">
+          <span style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);width:28px;flex-shrink:0;padding-top:0.5rem;">${ev.day.charAt(0).toUpperCase()+ev.day.slice(1)}</span>
+          <div style="flex:1">${buildEvCard(ev)}</div>
+        </div>`).join('')}
+    </div>`;
+  mwSection.innerHTML = `
+    <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.6rem;padding-bottom:0.4rem;border-bottom:1px solid var(--border);">📅 Midweek</div>
+    ${mwEvHtml}
+    <button class="add-btn" onclick="openMidweekModal('${wk}')" style="width:100%">+ add midweek event</button>`;
+  grid.appendChild(mwSection);
 
 function buildEvCard(ev) {
   const isMidweek = MIDWEEK_KEYS.includes(ev.day);
@@ -1201,6 +1201,34 @@ function buildEvCard(ev) {
     ${ev.notes?'<div class="event-meta">💬 '+escH(ev.notes)+'</div>':''}
     ${ev.added_by?`<span class="event-added-by added-${ev.added_by.toLowerCase()}">${escH(ev.added_by)}</span>`:''}
   </div>`;
+}
+
+function openMidweekModal(wk) {
+  editingEvId = null;
+  schedDay = 'mon'; schedWk = wk;
+  const c = getVibeColors(weekOffset)['fri'];
+  const titleEl = document.getElementById('sched-modal-title');
+  titleEl.innerHTML = 'Add <span style="color:'+c+'">Midweek</span> event';
+  document.getElementById('sched-save-btn').style.background = c;
+  document.getElementById('sched-save-btn').textContent = 'Add Event';
+  ['sf-title','sf-who','sf-notes','sf-wear'].forEach(id=>document.getElementById(id).value='');
+  const addrEl = document.getElementById('sf-address');
+  if (addrEl) addrEl.value = '';
+  document.getElementById('sf-time').value = '';
+  document.getElementById('sf-end-time').value = '';
+  // Show date picker open by default so they must pick a day
+  selectedCalDate = null;
+  calOpen = true;
+  document.getElementById('sched-day-picker-row').style.display = 'block';
+  const calEl = document.getElementById('sched-date-calendar');
+  const icon = document.getElementById('cal-toggle-icon');
+  if (calEl) calEl.style.display = 'block';
+  if (icon) icon.style.transform = 'rotate(180deg)';
+  document.getElementById('cal-selected-preview').textContent = '';
+  const wkDate = new Date(wk + 'T00:00:00');
+  buildEventCalendar(wk, wkDate.getFullYear(), wkDate.getMonth());
+  document.getElementById('sched-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('sf-title').focus(), 100);
 }
 
 function openSchedModal(dk, wk) {
@@ -1289,7 +1317,9 @@ async function saveSchedEvent() {
       }
       toast('Event updated!');
     } else {
-      await sb('schedule_events','POST', { week_start: schedWk, day: schedDay, ...payload });
+      const saveDay = selectedCalDate ? selectedCalDate.dayKey : schedDay;
+      const saveWk = selectedCalDate ? selectedCalDate.weekStart : schedWk;
+      await sb('schedule_events','POST', { week_start: saveWk, day: saveDay, ...payload });
       toast('Event added!');
     }
     closeModal('sched-modal');
