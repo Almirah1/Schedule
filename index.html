@@ -252,6 +252,11 @@
     transition: all 0.12s;
   }
   .cal-day.holiday { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); color: var(--accent); }
+  .cal-day.weekday-sel {
+    opacity: 0.5; cursor: pointer;
+    transition: all 0.12s;
+  }
+  .cal-day.weekday-sel:hover { opacity: 1; background: var(--surface2); border: 1px solid var(--border); }
   .cal-day.weekend:hover, .cal-day.holiday:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
   .cal-day.selected { background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important; }
   .cal-day.today-marker { outline: 2px solid var(--accent); outline-offset: 1px; opacity: 1; }
@@ -293,7 +298,7 @@
   .event-edit:active { color: var(--text); }
   /* Card right padding to clear both buttons */
   .event-card { padding: 0.65rem 2.2rem 0.65rem 0.75rem; }
-  .day-holiday { font-size: 0.58rem; color: var(--accent); margin-top: 0.2rem; font-style: italic; }
+  .midweek-card { border-left: 3px solid var(--muted); }
   .add-btn {
     margin: 0 0.65rem 0.65rem; padding: 0.65rem; background: none; border: 1px dashed var(--border);
     color: var(--muted); border-radius: 8px; cursor: pointer; font-family: 'Outfit', sans-serif;
@@ -1034,6 +1039,8 @@ document.querySelectorAll('.modal-overlay').forEach(mo => {
 
 // ── SCHEDULE ──
 const DAY_NAMES=['Friday','Saturday','Sunday'], DAY_KEYS=['fri','sat','sun'];
+const DAY_NAMES_ALL = { mon:'Monday', tue:'Tuesday', wed:'Wednesday', thu:'Thursday', fri:'Friday', sat:'Saturday', sun:'Sunday' };
+const MIDWEEK_KEYS = ['mon','tue','wed','thu'];
 
 // Offset 0 = this week = date weekend. Even offsets = date, odd offsets = home.
 // We normalise so that negative offsets also alternate correctly.
@@ -1145,18 +1152,7 @@ async function renderSchedule() {
   DAY_KEYS.forEach((dk,i)=>{
     const dayEvs = evs.filter(e=>e.day===dk);
     const col=document.createElement('div'); col.className='day-col '+dk;
-    const evHtml=dayEvs.length===0?'<div class="empty-state">nothing yet...</div>':dayEvs.map(ev=>`
-      <div class="event-card">
-        <button class="event-edit" onclick="openEditModal('${ev.id}')" title="Edit">✎</button>
-        <button class="event-delete" onclick="delSchedEv('${ev.id}')" title="Delete">×</button>
-        ${fmtTimeRange(ev.event_time, ev.end_time)?'<div class="event-time">'+fmtTimeRange(ev.event_time, ev.end_time)+'</div>':''}
-        <div class="event-title">${escH(ev.title)}</div>
-        ${ev.wear?'<div class="event-wear">👗 '+escH(ev.wear)+'</div>':''}
-        ${ev.address?'<div class="event-meta">📍 '+escH(ev.address)+'</div>':''}
-        ${ev.who?'<div class="event-meta">👥 '+escH(ev.who)+'</div>':''}
-        ${ev.notes?'<div class="event-meta">💬 '+escH(ev.notes)+'</div>':''}
-        ${ev.added_by?`<span class="event-added-by added-${ev.added_by.toLowerCase()}">${escH(ev.added_by)}</span>`:''}
-      </div>`).join('');
+    const evHtml=dayEvs.length===0?'<div class="empty-state">nothing yet...</div>':dayEvs.map(ev=>buildEvCard(ev)).join('');
     col.innerHTML=`
       <div class="day-header">
         <div>
@@ -1173,17 +1169,52 @@ async function renderSchedule() {
       <button class="add-btn" onclick="openSchedModal('${dk}','${wk}')">+ add event</button>`;
     grid.appendChild(col);
   });
+
+  // Midweek events
+  const midweekEvs = evs.filter(e => MIDWEEK_KEYS.includes(e.day));
+  if (midweekEvs.length > 0) {
+    const mwSection = document.createElement('div');
+    mwSection.style.cssText = 'grid-column:1/-1;margin-top:0.75rem;';
+    mwSection.innerHTML = `
+      <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:0.6rem;padding-bottom:0.4rem;border-bottom:1px solid var(--border);">📅 Midweek</div>
+      <div style="display:flex;flex-direction:column;gap:0.5rem;">
+        ${midweekEvs.map(ev => `
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            <span style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);width:28px;flex-shrink:0;">${ev.day.charAt(0).toUpperCase()+ev.day.slice(1)}</span>
+            <div style="flex:1">${buildEvCard(ev)}</div>
+          </div>`).join('')}
+      </div>`;
+    grid.appendChild(mwSection);
+  }
+}
+
+function buildEvCard(ev) {
+  const isMidweek = MIDWEEK_KEYS.includes(ev.day);
+  return `<div class="event-card${isMidweek?' midweek-card':''}">
+    <button class="event-edit" onclick="openEditModal('${ev.id}')" title="Edit">✎</button>
+    <button class="event-delete" onclick="delSchedEv('${ev.id}')" title="Delete">×</button>
+    ${fmtTimeRange(ev.event_time, ev.end_time)?'<div class="event-time">'+fmtTimeRange(ev.event_time, ev.end_time)+'</div>':''}
+    <div class="event-title">${escH(ev.title)}</div>
+    ${ev.wear?'<div class="event-wear">👗 '+escH(ev.wear)+'</div>':''}
+    ${ev.address?'<div class="event-meta">📍 '+escH(ev.address)+'</div>':''}
+    ${ev.who?'<div class="event-meta">👥 '+escH(ev.who)+'</div>':''}
+    ${ev.notes?'<div class="event-meta">💬 '+escH(ev.notes)+'</div>':''}
+    ${ev.added_by?`<span class="event-added-by added-${ev.added_by.toLowerCase()}">${escH(ev.added_by)}</span>`:''}
+  </div>`;
 }
 
 function openSchedModal(dk, wk) {
   editingEvId = null;
   schedDay=dk; schedWk=wk;
-  const i=DAY_KEYS.indexOf(dk), c=getVibeColors(weekOffset)[dk];
+  const dayDisplayName = DAY_NAMES_ALL[dk] || dk;
+  const c = getVibeColors(weekOffset)[dk] || getVibeColors(weekOffset)['fri'];
   const titleEl = document.getElementById('sched-modal-title');
-  titleEl.innerHTML = 'Add to <span id="sched-modal-day" style="color:'+c+'">'+DAY_NAMES[i]+'</span>';
+  titleEl.innerHTML = 'Add to <span id="sched-modal-day" style="color:'+c+'">'+dayDisplayName+'</span>';
   document.getElementById('sched-save-btn').style.background=c;
   document.getElementById('sched-save-btn').textContent='Add Event';
   ['sf-title','sf-who','sf-notes','sf-wear'].forEach(id=>document.getElementById(id).value='');
+  const addrEl = document.getElementById('sf-address');
+  if (addrEl) addrEl.value = '';
   document.getElementById('sf-time').value='';
   document.getElementById('sf-end-time').value='';
   document.getElementById('sched-day-picker-row').style.display = 'none';
@@ -1197,9 +1228,11 @@ function openEditModal(id) {
   editingEvId = ev.id;
   editingSchedDay = ev.day;
   schedDay = ev.day; schedWk = ev.week_start;
-  const dk = ev.day, i = DAY_KEYS.indexOf(dk), c = getVibeColors(weekOffset)[dk];
+  const dk = ev.day;
+  const dayDisplayName = DAY_NAMES_ALL[dk] || dk;
+  const c = getVibeColors(weekOffset)[dk] || getVibeColors(weekOffset)['fri'];
   const titleEl = document.getElementById('sched-modal-title');
-  titleEl.innerHTML = 'Edit <span style="color:'+c+'">'+DAY_NAMES[i]+'</span> event';
+  titleEl.innerHTML = 'Edit <span style="color:'+c+'">'+dayDisplayName+'</span> event';
   const btn = document.getElementById('sched-save-btn');
   btn.style.background = c; btn.textContent = 'Save Changes';
   document.getElementById('sf-title').value = ev.title || '';
@@ -1676,35 +1709,35 @@ function buildEventCalendar(currentWeekStart, year, month) {
     cell.textContent = day;
     if (isToday) cell.classList.add('today-marker');
 
-    if (isWeekend || holidayName) {
-      cell.classList.add(holidayName ? 'holiday' : 'weekend');
-      const daysFromFri = (dow + 2) % 7;
-      const fri = new Date(dt); fri.setDate(dt.getDate() - daysFromFri);
-      const wkStart = fri.toISOString().slice(0, 10);
-      const dayKey = dow === 5 ? 'fri' : dow === 6 ? 'sat' : 'sun';
-      if (holidayName) cell.title = holidayName;
+    // All days selectable — weekends/holidays highlighted, weekdays subtle
+    if (holidayName) cell.classList.add('holiday');
+    else if (isWeekend) cell.classList.add('weekend');
+    else cell.classList.add('weekday-sel');
 
-      // Restore previous selection if still visible
-      if (selectedCalDate && selectedCalDate.iso === iso) cell.classList.add('selected');
-      // Pre-select current event day on first open
-      if (!selectedCalDate && wkStart === currentWeekStart && dayKey === schedDay) {
-        cell.classList.add('selected');
-        selectedCalDate = { iso, dayKey, weekStart: wkStart };
-      }
+    const DOW_KEY = ['sun','mon','tue','wed','thu','fri','sat'];
+    const dayKey = DOW_KEY[dow];
+    const daysFromFri = (dow + 2) % 7;
+    const fri = new Date(dt); fri.setDate(dt.getDate() - daysFromFri);
+    const wkStart = fri.toISOString().slice(0, 10);
+    if (holidayName) cell.title = holidayName;
 
-      cell.onclick = () => {
-          document.querySelectorAll('.cal-day.selected').forEach(c => c.classList.remove('selected'));
-          cell.classList.add('selected');
-          selectedCalDate = { iso, dayKey, weekStart: wkStart };
-          updateCalPreview();
-          // Auto-collapse after picking
-          calOpen = false;
-          const calEl = document.getElementById('sched-date-calendar');
-          const icon = document.getElementById('cal-toggle-icon');
-          if (calEl) calEl.style.display = 'none';
-          if (icon) icon.style.transform = '';
-        };
+    if (selectedCalDate && selectedCalDate.iso === iso) cell.classList.add('selected');
+    if (!selectedCalDate && wkStart === currentWeekStart && dayKey === schedDay) {
+      cell.classList.add('selected');
+      selectedCalDate = { iso, dayKey, weekStart: wkStart };
     }
+
+    cell.onclick = () => {
+      document.querySelectorAll('.cal-day.selected').forEach(c => c.classList.remove('selected'));
+      cell.classList.add('selected');
+      selectedCalDate = { iso, dayKey, weekStart: wkStart };
+      updateCalPreview();
+      calOpen = false;
+      const calEl = document.getElementById('sched-date-calendar');
+      const icon = document.getElementById('cal-toggle-icon');
+      if (calEl) calEl.style.display = 'none';
+      if (icon) icon.style.transform = '';
+    };
     grid.appendChild(cell);
   }
   cal.appendChild(grid);
